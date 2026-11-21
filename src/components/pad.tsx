@@ -36,7 +36,10 @@ export const Pad = React.forwardRef<PadApi, { char: string; show: boolean; size?
     ctx.fillStyle = '#d6d3d1'; /* stone-300 */
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = (cv.width * 0.7) + 'px "Noto Sans JP", "Hiragino Sans", sans-serif';
+    /* scale font by character count so multi-char guides (拗音 digraphs like
+       きゃ, vocabulary words) fit the canvas instead of overflowing */
+    const n = Math.max(1, String(char).length);
+    ctx.font = Math.floor((cv.width * 0.7) / n) + 'px "Noto Sans JP", "Hiragino Sans", sans-serif';
     ctx.fillText(char, cv.width / 2, cv.height / 2 + cv.width * 0.02);
   }, [char, show]);
 
