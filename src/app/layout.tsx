@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Providers } from '@/components/providers';
 import { Nav } from '@/components/nav';
+import { PageTransition } from '@/components/page-transition';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <Providers>
           <Nav />
-          <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
+          <main className="mx-auto w-full max-w-6xl px-4 py-6">
+            <PageTransition>{children}</PageTransition>
+          </main>
           <footer className="mx-auto max-w-6xl px-4 pb-8 pt-2 text-center text-xs text-muted-foreground">
             Japanese Learning Website 2 — Next.js + TypeScript + Tailwind CSS + shadcn/ui. Same data &amp; cloud sync as the original site.
           </footer>

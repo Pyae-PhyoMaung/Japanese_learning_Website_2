@@ -59,3 +59,25 @@
 /* japanese text gets the JP font stack explicitly (same idea as the original .jp class) */
 .jp { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif; }
 .mm { font-family: 'Noto Sans Myanmar', 'Padauk', sans-serif; }
+
+/* ---------- motion & feel (whole-site transitions) ---------- */
+@layer base {
+  /* buttery color/shadow changes on every interactive element */
+  button, a, input, textarea, select, label {
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+  }
+  html { scroll-behavior: smooth; }
+  /* gentle hover lift on cards (chapter cards, detail panels, …) */
+  .bg-card { transition: box-shadow 200ms ease, border-color 200ms ease; }
+  .bg-card:hover { box-shadow: 0 10px 30px -18px hsl(222 47% 11% / 0.35); }
+}
+
+/* respect users who prefer no motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

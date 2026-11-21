@@ -53,8 +53,8 @@ export default function KanaPage() {
           <TabsTrigger value="hiragana">{t('Hiragana')} ひらがな</TabsTrigger>
           <TabsTrigger value="katakana">{t('Katakana')} カタカナ</TabsTrigger>
         </TabsList>
-        <TabsContent value="hiragana">
-          <div className="mb-4 flex flex-wrap gap-1">
+      </Tabs>
+      <div className="mb-4 flex flex-wrap gap-1">
             <button type="button" onClick={() => { setFilter('all'); setIdx(0); }} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (filter === 'all' ? ' border-primary bg-primary text-primary-foreground' : '')}>
               {t('All')} ({kana.length})
             </button>
@@ -63,10 +63,7 @@ export default function KanaPage() {
                 {r[0]}
               </button>
             ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="vocab">{null}</TabsContent>
-      </Tabs>
+      </div>
       <div className="mb-6 grid grid-cols-4 gap-2 sm:grid-cols-8 md:grid-cols-10">
         {list.map((k, i) => (
           <button key={k.c + i} type="button" onClick={() => setIdx(i)}

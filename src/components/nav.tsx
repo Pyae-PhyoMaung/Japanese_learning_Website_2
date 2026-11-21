@@ -74,7 +74,7 @@ export function Nav() {
                 {t(g.label)} <span className="text-[10px]">▾</span>
               </button>
               {open === g.label && (
-                <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border bg-background p-1 shadow-lg">
+                <div className="absolute left-0 top-full z-50 mt-1 w-48 animate-in fade-in slide-in-from-top-1 duration-150 rounded-lg border bg-background p-1 shadow-lg">
                   {g.items.map((n) => (
                     <Link key={n.href} href={n.href} className={cn('flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent', n.href === path && 'bg-accent font-medium')}>
                       <span className="w-5 text-center">{n.icon}</span> {t(n.label)}

@@ -69,7 +69,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           {children}
           <div className="fixed bottom-4 left-1/2 z-[100] flex -translate-x-1/2 flex-col items-center gap-2">
             {toasts.map((x) => (
-              <div key={x.id} className="flex items-center gap-2 rounded-lg border bg-background px-4 py-2 text-sm shadow-lg">
+              <div key={x.id} className="flex animate-in fade-in slide-in-from-bottom-4 duration-200 items-center gap-2 rounded-lg border bg-background px-4 py-2 text-sm shadow-lg">
                 <span>{x.kind === 'ok' ? '✓' : x.kind === 'warn' ? '⚠' : x.kind === 'err' ? '✕' : 'ℹ'}</span>
                 <span>{x.msg}</span>
               </div>
