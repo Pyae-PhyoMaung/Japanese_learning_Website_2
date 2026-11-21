@@ -53,7 +53,7 @@ export default function GrammarPage() {
   const chapterQuiz = (g: Grammar) => {
     const items: QuizItem[] = [];
     ALL.filter((x) => x.id === g.id).forEach((x) =>
-      (x.exercises || []).forEach((e) => items.push({ q: e.q, opts: e.opts, ans: e.ans, say: e.q.replace(/___/g, e.opts[e.ans] || '') })) )
+      (x.exercises || []).forEach((e) => items.push({ q: e.q, opts: e.opts, ans: e.ans, say: e.q.replace(/___/g, e.opts[e.ans] || '') }))
     );
     if (!items.length) return;
     setQuizTitle(g.title);
@@ -63,7 +63,7 @@ export default function GrammarPage() {
   const practiceAll = () => {
     const items: QuizItem[] = [];
     list.forEach((g) =>
-      (g.exercises || []).forEach((e) => items.push({ q: e.q, opts: e.opts, ans: e.ans, say: e.q.replace(/___/g, e.opts[e.ans] || '') })) )
+      (g.exercises || []).forEach((e) => items.push({ q: e.q, opts: e.opts, ans: e.ans, say: e.q.replace(/___/g, e.opts[e.ans] || '') }))
     );
     if (!items.length) { setQuizTitle(''); setQuiz([]); return; }
     setQuizTitle(t('Grammar practice'));
@@ -76,7 +76,7 @@ export default function GrammarPage() {
       <LevelBar />
       <ChapterGrid
         chapters={[{ n: 0, t: t('All grammar'), count: ALL.length, extra: true }].concat(
-          chs.map((c) => ({ n: c.n, t: c.t, count: c.count }))
+          chs.map((c) => ({ n: c.n, t: c.t, count: c.count, extra: false }))
         )}
         active={ch}
         onPick={(n) => setCh(String(n))}

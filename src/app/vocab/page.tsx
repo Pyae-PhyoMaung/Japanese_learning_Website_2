@@ -107,7 +107,7 @@ export default function VocabPage() {
   };
 
   const chapterCards = [{ n: -1, t: '★ ' + t('Essential & my words'), count: nEss, extra: true }]
-    .concat(chs.map((c) => ({ n: c.n, t: c.t, count: c.count })))
+    .concat(chs.map((c) => ({ n: c.n, t: c.t, count: c.count, extra: false })))
     .concat([{ n: -2, t: '📖 ' + t('All words'), count: ALL.length, extra: true }]);
   const cardKey = (c: { n: number; extra?: boolean }) => (c.extra ? (c.n === -1 ? '__essential__' : '') : String(c.n));
 

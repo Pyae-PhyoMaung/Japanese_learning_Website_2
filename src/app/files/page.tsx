@@ -5,7 +5,8 @@
    PDFs / video / audio in a dialog, and delete (removes metadata, the
    IndexedDB copy, and the cloud object). */
 import * as React from 'react';
-import { filesList, filePut, fileGet, fileDel, fileCat, type FileRec, type FileMeta } from '@/lib/files';
+import { filesList, filePut, fileGet, fileDel, fileCat, type FileRec } from '@/lib/files';
+import type { FileMeta } from '@/lib/types';
 import { PageHead } from '@/components/page-head';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';

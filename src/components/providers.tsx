@@ -63,7 +63,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const toastValue = React.useMemo(() => ({ toasts, toast }), [toasts, toast]);
 
   return (
-    <ThemeProvider attribute="class" storageKey="jl_theme" defaultTheme="light" enableSystem={false} suppressHydrationWarning>
+    <ThemeProvider attribute="class" storageKey="jl_theme" defaultTheme="light" enableSystem={false}>
       <LangCtx.Provider value={langValue}>
         <ToastCtx.Provider value={toastValue}>
           {children}

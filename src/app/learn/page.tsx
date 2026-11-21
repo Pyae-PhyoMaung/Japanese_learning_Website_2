@@ -54,7 +54,7 @@ export default function LearnPage() {
     tab === 'kanji'
       ? ch === 'sel' ? K.filter((k) => selK.includes(k.id)) : K.filter((k) => String(k.chapter || 0) === ch)
       : ch === 'sel' ? V.filter((v) => selV.includes(v.id)) : V.filter((v) => String(v.chapter || 0) === ch);
-  const items = React.useMemo(() => shuffle(pool), [tab, ch, seed, mounted]);
+  const items = React.useMemo(() => shuffle(pool as any[]), [tab, ch, seed, mounted]);
   const cur: any = items[idx] || null;
 
   React.useEffect(() => { setIdx(0); setRevealed(false); }, [tab, ch]);

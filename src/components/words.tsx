@@ -7,7 +7,7 @@
    fill-in-the-blank quiz from kanji examples. */
 import * as React from 'react';
 import Link from 'next/link';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Quiz } from '@/components/quiz';

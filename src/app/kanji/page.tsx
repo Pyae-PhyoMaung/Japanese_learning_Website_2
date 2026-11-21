@@ -124,7 +124,7 @@ export default function KanjiPage() {
           {view === 'chapters' ? (
             <ChapterGrid
               chapters={[{ n: 0, t: 'All kanji', count: ALL.length, extra: true }].concat(
-                chs.map((c) => ({ n: c.n, t: chapterTitle('kanji', c.n, c.t) || c.t, count: ALL.filter((k) => k.chapter === c.n).length }))
+                chs.map((c) => ({ n: c.n, t: chapterTitle('kanji', c.n, c.t) || c.t, count: ALL.filter((k) => k.chapter === c.n).length, extra: false }))
               )}
               active={ch}
               onPick={(n) => { setCh(Number(n)); setView('kanji'); syncUrl(); }}

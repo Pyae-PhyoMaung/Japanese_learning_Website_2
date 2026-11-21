@@ -64,11 +64,12 @@ export interface Grammar {
 }
 
 export interface Sentence {
-  id: string;
+  id?: string; /* base sentences carry no id (as in the original data.js); merged() assigns stable synthetic ones */
   jp: string;
   rd?: string;
   en?: string;
   mm?: string;
+  cat?: string;
   chapter?: number;
   chapterTitle?: string;
   level?: string;

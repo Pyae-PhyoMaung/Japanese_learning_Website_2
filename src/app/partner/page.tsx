@@ -68,7 +68,8 @@ export default function PartnerPage() {
       const items: QuizItem[] = pickN(pool as any[], 10).map((it: any) => {
         const others = pickN(pool as any[], 3).filter((o) => o.id !== it.id).slice(0, 3);
         const a = kind === 'kanji' ? (it.kun || (it.on || [])[0] || it.kanji) : (it.mm || it.en || '');
-        const opts = shuffle([a].concat(others.map((o: any) => (kind === 'kanji' ? (o.kun || (o.on || [])[0] || o.kanji) : (o.mm || o.en || ''))));
+        const othersOpts = others.map((o: any) => (kind === 'kanji' ? (o.kun || (o.on || [])[0] || o.kanji) : (o.mm || o.en || '')));
+        const opts = shuffle([a].concat(othersOpts));
         return { q: it.kanji || it.jp, opts, ans: opts.indexOf(a), say: it.kanji || it.jp };
       });
       setQuiz(items);

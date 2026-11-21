@@ -40,7 +40,7 @@ export function pref(key: string, val?: any): any {
   return val;
 }
 
-function kindStore(kind: string): KindStore {
+function kindStore(kind: string): any {
   const u = getUser();
   if (!u[kind]) (u as any)[kind] = { added: [], edited: {}, deleted: {} };
   return u as any;

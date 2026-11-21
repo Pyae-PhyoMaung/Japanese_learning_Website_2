@@ -18,11 +18,15 @@ export function merged<T = any>(kind: string): T[] {
   const del = (s.deleted && typeof s.deleted === 'object' && !Array.isArray(s.deleted) && s.deleted) || {};
   const ed = (s.edited && typeof s.edited === 'object' && !Array.isArray(s.edited) && s.edited) || {};
   const out: any[] = [];
-  (base[kind] || []).forEach((it) => {
-    if (!it || it.id == null) return;
-    if (del[it.id]) return;
-    const e = ed[it.id];
-    out.push(e && typeof e === 'object' ? Object.assign({}, it, e) : it);
+  (base[kind] || []).forEach((it: any, i: number) => {
+    if (!it) return;
+    /* base sentences carry no ids (like the original data.js, whose pages
+       read the raw array) — give id-less base items stable synthetic ids so
+       the user edit/delete layers and React keys work uniformly */
+    const id = it.id != null ? it.id : 'b_' + kind + '_' + i;
+    if (del[id]) return;
+    const e = ed[id];
+    out.push(e && typeof e === 'object' ? Object.assign({}, it, e, { id }) : { ...it, id });
   });
   (Array.isArray(s.added) ? s.added : []).forEach((it: any) => {
     if (it && typeof it === 'object') out.push(it);

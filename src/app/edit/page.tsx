@@ -7,7 +7,7 @@
    example) words are listed read-only so counts match the Vocabulary page. */
 import * as React from 'react';
 import { kanjiList, vocabList, grammarList, sentenceList, kexVocab, merged, chapters, chapterTitle, useJL } from '@/lib/jl';
-import { pref, save, remove, restore, getUser, setUser, useJL as useStore } from '@/lib/store';
+import { pref, save, remove, restore, getUser, setUser } from '@/lib/store';
 import { PageHead } from '@/components/page-head';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -61,7 +61,7 @@ function parseSpecial(kind: string, it: any): any {
 }
 
 export default function EditPage() {
-  useStore();
+  useJL();
   const { t } = useT();
   const toast = useToast();
   const [mounted, setMounted] = React.useState(false);
