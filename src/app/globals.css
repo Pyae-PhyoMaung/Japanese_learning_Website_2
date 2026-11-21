@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn/ui design tokens, with the original site's palette feel:
+   blue primary, terracotta accent, cream paper background. */
+@layer base {
+  :root {
+    --background: 40 33% 96%;         /* cream paper */
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 76% 42%;           /* site blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 25% 90%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 40 25% 92%;
+    --muted-foreground: 222 15% 40%;
+    --accent: 16 70% 60%;             /* terracotta */
+    --accent-foreground: 40 33% 98%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 20% 82%;
+    --input: 40 20% 78%;
+    --ring: 217 76% 42%;
+    --radius: 0.75rem;
+  }
+  .dark {
+    --background: 222 40% 8%;
+    --foreground: 40 20% 96%;
+    --card: 222 35% 11%;
+    --card-foreground: 40 20% 96%;
+    --popover: 222 35% 11%;
+    --popover-foreground: 40 20% 96%;
+    --primary: 217 80% 60%;
+    --primary-foreground: 222 40% 8%;
+    --secondary: 222 25% 16%;
+    --secondary-foreground: 40 20% 96%;
+    --muted: 222 25% 16%;
+    --muted-foreground: 220 12% 65%;
+    --accent: 16 65% 55%;
+    --accent-foreground: 222 40% 8%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 25% 20%;
+    --input: 222 25% 24%;
+    --ring: 217 80% 60%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+  html { font-family: 'Noto Sans JP', 'Noto Sans Myanmar', system-ui, -apple-system, sans-serif; }
+}
+
+/* japanese text gets the JP font stack explicitly (same idea as the original .jp class) */
+.jp { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif; }
+.mm { font-family: 'Noto Sans Myanmar', 'Padauk', sans-serif; }
