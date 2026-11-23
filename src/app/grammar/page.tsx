@@ -4,7 +4,9 @@
    meaning / Myanmar explanation, examples with speak buttons, and exercise
    quizzes (fill-in-the-blank multiple choice) per point and for the chapter. */
 import * as React from 'react';
+import Link from 'next/link';
 import { byLevel, grammarList, chapterTitle, useJL } from '@/lib/jl';
+import { pref } from '@/lib/store';
 import { LevelBar } from '@/components/level-bar';
 import { PageHead } from '@/components/page-head';
 import { ChapterGrid } from '@/components/chapter-grid';
@@ -12,14 +14,16 @@ import { Quiz } from '@/components/quiz';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SpeakBtn } from '@/components/words';
-import { useT } from '@/components/providers';
+import { useT, useToast } from '@/components/providers';
 import { shuffle } from '@/lib/utils';
 import type { Grammar, QuizItem } from '@/lib/types';
 
 export default function GrammarPage() {
   useJL();
   const { t } = useT();
+  const toast = useToast();
   const [mounted, setMounted] = React.useState(false);
+  const [selectMode, setSelectMode] = React.useState(false);
   const [ch, setCh] = React.useState<string>('');
   const [quiz, setQuiz] = React.useState<QuizItem[] | null>(null);
   const [quizTitle, setQuizTitle] = React.useState('');
@@ -49,6 +53,15 @@ export default function GrammarPage() {
   }, []);
 
   const list = ch === '' ? ALL : ALL.filter((g) => String(g.chapter || 0) === ch);
+
+  /* selection — like the Kanji / Vocabulary pages (sel_grammar pref) */
+  const sel = mounted ? (pref('sel_grammar') || []) : [];
+  const toggleSel = (id: string) => {
+    const s = pref('sel_grammar') || [];
+    const i = s.indexOf(id);
+    if (i < 0) s.push(id); else s.splice(i, 1);
+    pref('sel_grammar', s);
+  };
 
   const chapterQuiz = (g: Grammar) => {
     const items: QuizItem[] = [];
@@ -81,9 +94,22 @@ export default function GrammarPage() {
         active={ch}
         onPick={(n) => setCh(String(n))}
       />
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm text-muted-foreground">{list.length} {t('points')}</div>
-        <Button onClick={practiceAll}>{t('Practice all')}</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant={selectMode ? 'default' : 'outline'}
+            onClick={() => { setSelectMode(!selectMode); if (!selectMode) toast('Select mode: tap grammar points to add them to your Learn list.', 'ok'); }}
+          >
+            {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
+          </Button>
+          <Link href="/learn?tab=grammar" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({sel.length})</Link>
+          <Button size="sm" variant="ghost" onClick={() => { pref('sel_grammar', []); toast('Selection cleared.', 'ok'); }}>
+            ✕ {t('Clear selection')}
+          </Button>
+          <Button onClick={practiceAll}>{t('Practice all')}</Button>
+        </div>
       </div>
       {quiz ? (
         <div className="mb-6">
@@ -91,9 +117,16 @@ export default function GrammarPage() {
         </div>
       ) : null}
       <div className="space-y-4">
-        {list.map((g) => (
-          <div key={g.id} className="rounded-xl border bg-card p-5 shadow-sm">
+        {list.map((g) => {
+          const selected = selectMode && sel.includes(g.id);
+          return (
+            <div
+              key={g.id}
+              onClick={selectMode ? () => toggleSel(g.id) : undefined}
+              className={'rounded-xl border bg-card p-5 shadow-sm' + (selectMode ? ' cursor-pointer hover:bg-accent/30' : '') + (selected ? ' ring-2 ring-primary' : '')}
+            >
             <div className="flex flex-wrap items-center gap-2">
+              {selectMode ? <span className="text-lg" aria-hidden>{selected ? '☑' : '☐'}</span> : null}
               <h3 className="text-lg font-semibold">{g.title}</h3>
               {g.pattern ? <Badge variant="secondary">{g.pattern}</Badge> : null}
               {g.lesson ? <Badge variant="outline">{t('Lesson')} {g.lesson}</Badge> : null}
@@ -119,7 +152,8 @@ export default function GrammarPage() {
               </Button>
             ) : null}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

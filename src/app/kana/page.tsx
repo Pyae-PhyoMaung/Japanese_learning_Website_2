@@ -5,12 +5,15 @@
    and the writing pad for the selected kana with speak / guide / clear /
    undo — same data (ROWS) as the original pages. */
 import * as React from 'react';
+import Link from 'next/link';
 import { KANA_ROWS } from '@/lib/kana-data';
+import { pref } from '@/lib/store';
+import { useJL } from '@/lib/jl';
 import { PageHead } from '@/components/page-head';
 import { Pad, PadApi } from '@/components/pad';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { useT } from '@/components/providers';
+import { useT, useToast } from '@/components/providers';
 import { speak } from '@/lib/tts';
 
 function buildKana(rows: string[][]) {
@@ -24,7 +27,11 @@ function buildKana(rows: string[][]) {
 }
 
 export default function KanaPage() {
+  useJL();
   const { t } = useT();
+  const toast = useToast();
+  const [mounted, setMounted] = React.useState(false);
+  const [selectMode, setSelectMode] = React.useState(false);
   const [tab, setTab] = React.useState<'hiragana' | 'katakana'>('hiragana');
   const [filter, setFilter] = React.useState('all');
   const [idx, setIdx] = React.useState(0);
@@ -32,6 +39,7 @@ export default function KanaPage() {
   const padRef = React.useRef<PadApi>(null);
 
   React.useEffect(() => {
+    setMounted(true);
     const params = new URLSearchParams(location.search);
     const tv = params.get('tab');
     if (tv === 'katakana' || tv === 'hiragana') setTab(tv);
@@ -41,6 +49,15 @@ export default function KanaPage() {
   const kana = React.useMemo(() => buildKana(rows), [tab]);
   const list = filter === 'all' ? kana : kana.filter((k) => k.row === filter);
   const cur = list[Math.min(idx, list.length - 1)] || kana[0];
+
+  /* selection — like the Kanji / Vocabulary pages (sel_kana pref) */
+  const sel = mounted ? (pref('sel_kana') || []) : [];
+  const toggleSel = (c: string) => {
+    const s = pref('sel_kana') || [];
+    const i = s.indexOf(c);
+    if (i < 0) s.push(c); else s.splice(i, 1);
+    pref('sel_kana', s);
+  };
 
   React.useEffect(() => { setFilter('all'); setIdx(0); }, [tab]);
   React.useEffect(() => { padRef.current?.clear(); }, [cur && cur.c]);
@@ -64,14 +81,31 @@ export default function KanaPage() {
               </button>
             ))}
       </div>
+      {/* toolbar — learn your selection / clear it, like the Kanji & Vocabulary pages */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant={selectMode ? 'default' : 'outline'}
+          onClick={() => { setSelectMode(!selectMode); if (!selectMode) toast('Select mode: tap kana to add them to your Learn list.', 'ok'); }}
+        >
+          {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
+        </Button>
+        <Link href="/learn?tab=kana" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({sel.length})</Link>
+        <Button size="sm" variant="ghost" onClick={() => { pref('sel_kana', []); toast('Selection cleared.', 'ok'); }}>
+          ✕ {t('Clear selection')} ({sel.length})
+        </Button>
+      </div>
       <div className="mb-6 grid grid-cols-4 gap-2 sm:grid-cols-8 md:grid-cols-10">
-        {list.map((k, i) => (
-          <button key={k.c + i} type="button" onClick={() => setIdx(i)}
-            className={'flex flex-col items-center rounded-lg border py-2 hover:bg-accent' + (i === idx ? ' border-primary bg-primary text-primary-foreground' : '')}>
-            <span className="text-2xl">{k.c}</span>
-            <span className="text-[10px] text-muted-foreground">{k.r}</span>
-          </button>
-        ))}
+        {list.map((k, i) => {
+          const selected = selectMode && sel.includes(k.c);
+          return (
+            <button key={k.c + i} type="button" onClick={() => (selectMode ? toggleSel(k.c) : setIdx(i))}
+              className={'flex flex-col items-center rounded-lg border py-2 hover:bg-accent' + (selected ? ' border-primary bg-primary text-primary-foreground' : i === idx && !selectMode ? ' border-primary bg-primary text-primary-foreground' : '')}>
+              <span className="text-2xl">{k.c}</span>
+              <span className="text-[10px] text-muted-foreground">{k.r}</span>
+            </button>
+          );
+        })}
       </div>
       {cur ? (
         <div className="mx-auto max-w-md space-y-4 rounded-2xl border bg-card p-6 text-center shadow-sm">

@@ -48,16 +48,17 @@ export function Nav() {
   const toast = useToast();
   const { theme, setTheme } = useTheme();
   const [open, setOpen] = React.useState<string | null>(null);
+  const [pinned, setPinned] = React.useState<string | null>(null); /* a clicked dropdown stays open until outside click */
   const [mounted, setMounted] = React.useState(false);
   useJL();
 
   React.useEffect(() => { setMounted(true); }, []);
   /* close any open dropdown when the route changes */
-  React.useEffect(() => { setOpen(null); }, [path]);
+  React.useEffect(() => { setOpen(null); setPinned(null); }, [path]);
   /* outside click / Escape closes the dropdowns */
   React.useEffect(() => {
-    const onDoc = () => setOpen(null);
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(null); };
+    const onDoc = () => { setOpen(null); setPinned(null); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(null); setPinned(null); } };
     document.addEventListener('click', onDoc);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -70,33 +71,35 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-      {/* brand bar — logo + site title on the top left, like the original topbar */}
+      {/* brand bar — logo + site title on the top left, in the original site's blue gradient */}
+      <div className="bg-gradient-to-r from-[#1d3557] to-[#2b507c] shadow-md">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
         <Link href="/" className="flex items-center gap-2.5 rounded-md pr-1 hover:opacity-90" title="Home">
           <span className="jp flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-base font-bold text-primary-foreground">日本語</span>
-          <span className="text-sm font-semibold sm:text-base">
-            Japanese Learning Website <span className="text-muted-foreground">— JLPT {lvl}</span>
+          <span className="text-sm font-semibold text-white sm:text-base">
+            Japanese Learning Website <span className="text-white/70">— JLPT {lvl}</span>
           </span>
         </Link>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1 text-white">
           <button
             type="button"
             title="Check for new data"
-            className="rounded-md px-2 py-1 text-sm hover:bg-accent"
+            className="rounded-md px-2 py-1 text-sm hover:bg-white/15"
             onClick={() => pullUserData((r) => toast(r && r.updated ? 'Data updated ✓' : 'Already up to date', 'ok'))}
           >
             ↻
           </button>
-          <button type="button" title="Myanmar / English" className="rounded-md px-2 py-1 text-sm hover:bg-accent" onClick={() => setLang(lang === 'mm' ? 'en' : 'mm')}>
+          <button type="button" title="Myanmar / English" className="rounded-md px-2 py-1 text-sm hover:bg-white/15" onClick={() => setLang(lang === 'mm' ? 'en' : 'mm')}>
             {lang === 'mm' ? 'English' : 'မြန်မာ'}
           </button>
-          <button type="button" title="Light / dark theme" className="rounded-md px-2 py-1 text-sm hover:bg-accent" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+          <button type="button" title="Light / dark theme" className="rounded-md px-2 py-1 text-sm hover:bg-white/15" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
         </div>
       </div>
+      </div>
       {/* nav bar — below the brand, with the grouped dropdowns */}
-      <div className="border-t bg-muted/40">
+      <div className="border-t bg-card shadow-sm">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-1 gap-y-1 px-4 py-1.5">
           <Link href="/" className={cn('rounded-md px-2 py-1 text-sm font-medium hover:bg-accent', path === '/' && 'bg-accent')}>
             {t('Home')}
@@ -108,15 +111,17 @@ export function Nav() {
                 key={g.label}
                 className="relative"
                 onMouseEnter={() => setOpen(g.label)}
-                onMouseLeave={() => setOpen((o) => (o === g.label ? null : o))}
+                onMouseLeave={() => { if (pinned !== g.label) setOpen(null); }}
               >
                 <button
                   type="button"
                   className={cn('rounded-md px-2 py-1 text-sm font-medium hover:bg-accent', open === g.label && 'bg-accent', hasActive && 'text-primary')}
                   onClick={(e) => {
+                    /* clicking pins the menu open (it stays); hover keeps working */
                     e.stopPropagation();
                     e.preventDefault();
-                    setOpen(open === g.label ? null : g.label);
+                    setOpen(g.label);
+                    setPinned(g.label);
                   }}
                 >
                   {t(g.label)} <span className="text-[10px]">▾</span>

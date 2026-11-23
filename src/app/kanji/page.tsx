@@ -6,6 +6,7 @@
    over a shared scope (All chapters or one chapter). URL state ?ch/?q/?k is
    kept via history.replaceState so back/refresh return to this view. */
 import * as React from 'react';
+import Link from 'next/link';
 import { byLevel, kanjiList, chapterTitle, chapters, useJL } from '@/lib/jl';
 import { pref } from '@/lib/store';
 import { LevelBar } from '@/components/level-bar';
@@ -147,6 +148,7 @@ export default function KanjiPage() {
                 <Button size="sm" variant="ghost" onClick={() => { pref('sel_kanji', []); toast('Selection cleared.', 'ok'); }}>
                   {t('Clear')} ({(pref('sel_kanji') || []).length})
                 </Button>
+                <Link href="/learn?tab=kanji" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_kanji') || []).length})</Link>
               </div>
               <div className="mb-2 text-xs text-muted-foreground">{filtered.length} kanji</div>
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">

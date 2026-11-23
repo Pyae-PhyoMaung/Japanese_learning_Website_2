@@ -2,51 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
-/* shadcn/ui design tokens, with the original site's palette feel:
-   blue primary, terracotta accent, cream paper background. */
+/* shadcn/ui design tokens, with the ORIGINAL site's exact palette:
+   brick-red accent #bc4749 (dark: #d05c5e), cream paper bg #f6f4f0,
+   ink #22223b, warm borders #e4ded4, 14px radius. */
 @layer base {
   :root {
-    --background: 40 33% 96%;         /* cream paper */
-    --foreground: 222 47% 11%;
+    --background: 40 33% 96%;         /* cream paper #f6f4f0 */
+    --foreground: 240 27% 18%;        /* ink #22223b */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 240 27% 18%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 217 76% 42%;           /* site blue */
+    --popover-foreground: 240 27% 18%;
+    --primary: 359 45% 51%;           /* legacy accent #bc4749 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 25% 90%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 0 45% 94%;           /* accent-soft #f6e7e7 */
+    --secondary-foreground: 359 45% 34%;
     --muted: 40 25% 92%;
-    --muted-foreground: 222 15% 40%;
-    --accent: 16 70% 60%;             /* terracotta */
-    --accent-foreground: 40 33% 98%;
-    --destructive: 0 72% 45%;
+    --muted-foreground: 219 9% 46%;  /* legacy muted #6b7280 */
+    --accent: 0 45% 94%;              /* hover bg = accent-soft */
+    --accent-foreground: 359 45% 34%;
+    --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 20% 82%;
-    --input: 40 20% 78%;
-    --ring: 217 76% 42%;
-    --radius: 0.75rem;
+    --border: 37 24% 86%;             /* #e4ded4 */
+    --input: 37 24% 82%;
+    --ring: 359 45% 51%;
+    --radius: 0.875rem;               /* 14px, like the original */
   }
   .dark {
-    --background: 222 40% 8%;
-    --foreground: 40 20% 96%;
-    --card: 222 35% 11%;
-    --card-foreground: 40 20% 96%;
-    --popover: 222 35% 11%;
-    --popover-foreground: 40 20% 96%;
-    --primary: 217 80% 60%;
-    --primary-foreground: 222 40% 8%;
-    --secondary: 222 25% 16%;
-    --secondary-foreground: 40 20% 96%;
-    --muted: 222 25% 16%;
-    --muted-foreground: 220 12% 65%;
-    --accent: 16 65% 55%;
-    --accent-foreground: 222 40% 8%;
-    --destructive: 0 62% 50%;
+    --background: 218 14% 12%;       /* #1b1e24 */
+    --foreground: 40 14% 89%;         /* #e6e4df */
+    --card: 221 13% 17%;              /* #262a31 */
+    --card-foreground: 40 14% 89%;
+    --popover: 221 13% 17%;
+    --popover-foreground: 40 14% 89%;
+    --primary: 359 55% 59%;           /* #d05c5e */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 15% 20%;           /* #3a2b2b */
+    --secondary-foreground: 40 14% 89%;
+    --muted: 221 13% 21%;
+    --muted-foreground: 211 11% 64%; /* #9aa3ad */
+    --accent: 0 15% 20%;
+    --accent-foreground: 40 14% 89%;
+    --destructive: 0 55% 64%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 25% 20%;
-    --input: 222 25% 24%;
-    --ring: 217 80% 60%;
+    --border: 216 12% 26%;             /* #3a4049 */
+    --input: 216 12% 26%;
+    --ring: 359 55% 59%;
   }
 }
 
@@ -69,7 +70,7 @@
   html { scroll-behavior: smooth; }
   /* gentle hover lift on cards (chapter cards, detail panels, …) */
   .bg-card { transition: box-shadow 200ms ease, border-color 200ms ease; }
-  .bg-card:hover { box-shadow: 0 10px 30px -18px hsl(222 47% 11% / 0.35); }
+  .bg-card:hover { box-shadow: 0 10px 30px -18px hsl(240 27% 18% / 0.4); }
 }
 
 /* respect users who prefer no motion */

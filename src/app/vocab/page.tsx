@@ -5,6 +5,7 @@
    select mode (sel_vocab), detail dialog, and practice tabs over a shared
    scope. URL state ?ch=ess|all|N and ?q= via history.replaceState. */
 import * as React from 'react';
+import Link from 'next/link';
 import { byLevel, vocabList, kexVocab, chapterTitle, useJL } from '@/lib/jl';
 import { pref } from '@/lib/store';
 import { LevelBar } from '@/components/level-bar';
@@ -154,6 +155,7 @@ export default function VocabPage() {
                 <Button size="sm" variant="ghost" onClick={() => { pref('sel_vocab', []); toast('Selection cleared.', 'ok'); }}>
                   {t('Clear')} ({(pref('sel_vocab') || []).length})
                 </Button>
+                <Link href="/learn?tab=vocab" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_vocab') || []).length})</Link>
               </div>
               <div className="mb-2 text-xs text-muted-foreground">{filtered.length} words</div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
