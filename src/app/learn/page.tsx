@@ -17,7 +17,7 @@ import { SpeakBtn } from '@/components/words';
 import { useT, useToast } from '@/components/providers';
 import { speak } from '@/lib/tts';
 import { shuffle } from '@/lib/utils';
-import { KANA_ROWS } from '@/lib/kana-data';
+import { KANA_ROWS, kanaUnits } from '@/lib/kana-data';
 import type { Kanji, Vocab, Grammar } from '@/lib/types';
 
 export default function LearnPage() {
@@ -52,7 +52,7 @@ export default function LearnPage() {
     (['hiragana', 'katakana'] as const).forEach((s) =>
       (KANA_ROWS[s] || []).forEach((row) => {
         const roms = row[2].split(' ');
-        row[1].split('').forEach((c, i) => out.push({ c, r: roms[i] || '', script: s }));
+        kanaUnits(row[1]).forEach((c, i) => out.push({ c, r: roms[i] || '', script: s }));
       })
     );
     return out;

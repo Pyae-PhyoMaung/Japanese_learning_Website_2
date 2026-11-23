@@ -39,7 +39,8 @@ export function VocabCard({ v, selected, onToggle }: { v: Vocab; selected?: bool
           'flex cursor-pointer flex-col gap-1 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:bg-accent/40',
           selected && 'ring-2 ring-primary'
         )}
-        onClick={() => setOpen(true)}
+        {/* in select mode the WHOLE card toggles the selection (not just the checkbox) */}
+        onClick={() => (onToggle ? onToggle(v.id) : setOpen(true))}
       >
         {onToggle ? (
           <input
@@ -121,7 +122,8 @@ export function KanjiCard({ k, selected, onToggle }: { k: Kanji; selected?: bool
           'flex cursor-pointer flex-col items-center gap-1 rounded-xl border bg-card p-3 shadow-sm transition-colors hover:bg-accent/40',
           selected && 'ring-2 ring-primary'
         )}
-        onClick={() => setOpen(true)}
+        {/* in select mode the WHOLE card toggles the selection (not just the checkbox) */}
+        onClick={() => (onToggle ? onToggle(k.id) : setOpen(true))}
       >
         {onToggle ? (
           <input

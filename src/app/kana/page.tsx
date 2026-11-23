@@ -6,7 +6,7 @@
    undo — same data (ROWS) as the original pages. */
 import * as React from 'react';
 import Link from 'next/link';
-import { KANA_ROWS } from '@/lib/kana-data';
+import { KANA_ROWS, kanaUnits } from '@/lib/kana-data';
 import { pref } from '@/lib/store';
 import { useJL } from '@/lib/jl';
 import { PageHead } from '@/components/page-head';
@@ -19,7 +19,7 @@ import { speak } from '@/lib/tts';
 function buildKana(rows: string[][]) {
   const out: Array<{ c: string; r: string; row: string }> = [];
   rows.forEach((row) => {
-    const chars = row[1].split('');
+    const chars = kanaUnits(row[1]); /* digraphs stay one unit, so romaji lines up */
     const roms = row[2].split(' ');
     chars.forEach((c, i) => out.push({ c, r: roms[i] || '', row: row[0] }));
   });
