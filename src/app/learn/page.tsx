@@ -145,8 +145,8 @@ export default function LearnPage() {
           {showCats ? '▾' : '▸'} {t('🗂️ Categories')}
         </button>
         {selCount > 0 ? (
-          <button type="button" onClick={() => { pref('sel_' + tab, []); toast(t('Selection cleared.'), 'ok'); }} className="rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent">
-            ✕ {t('Clear selection')}
+          <button type="button" onClick={() => { pref('sel_' + tab, []); toast(t('Selection cleared.'), 'ok'); }} className="rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive">
+            ✕ {t('Clear selection')} ({selCount})
           </button>
         ) : null}
       </div>

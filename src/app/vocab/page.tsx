@@ -143,15 +143,21 @@ export default function VocabPage() {
               placeholder="Search words…"
               className="h-9 min-w-[200px] flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
-            <Button
-              size="sm"
-              variant={selectMode ? 'default' : 'outline'}
-              onClick={() => { setSelectMode(!selectMode); if (!selectMode) { setCat(''); setView('words'); syncUrl(); toast('Select mode: tap words to add them to your Learn list.', 'ok'); } }}
-            >
-              {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
-            </Button>
-            <Link href="/learn?tab=vocab" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_vocab') || []).length})</Link>
-            <Button size="sm" variant="outline" onClick={() => { pref('sel_vocab', []); toast('Selection cleared.', 'ok'); }}>✕ {t('Clear selection')}</Button>
+            <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 shadow-sm">
+              <Button
+                size="sm"
+                variant={selectMode ? 'secondary' : 'ghost'}
+                className={'gap-1 font-medium' + (selectMode ? ' ring-1 ring-primary/40' : ' text-muted-foreground')}
+                onClick={() => { setSelectMode(!selectMode); if (!selectMode) { setCat(''); setView('words'); syncUrl(); toast('Select mode: tap words to add them to your Learn list.', 'ok'); } }}
+              >
+                {selectMode ? '✓ ' + t('Done selecting') : '☑ ' + t('Select')}
+              </Button>
+              <Link href="/learn?tab=vocab" className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
+                🎯 {t('Learn selected')}
+                <span className="rounded-full bg-primary-foreground/25 px-1.5 text-xs font-semibold leading-5">{(pref('sel_vocab') || []).length}</span>
+              </Link>
+              <Button size="sm" variant="ghost" disabled={!(pref('sel_vocab') || []).length} className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40" onClick={() => { pref('sel_vocab', []); toast('Selection cleared.', 'ok'); }}>✕ {t('Clear selection')}</Button>
+            </div>
           </div>
           {view === 'chapters' ? (
             <ChapterGrid

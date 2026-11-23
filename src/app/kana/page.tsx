@@ -83,17 +83,21 @@ export default function KanaPage() {
       </div>
       {/* toolbar — learn your selection / clear it, like the Kanji & Vocabulary pages */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant={selectMode ? 'default' : 'outline'}
-          onClick={() => { setSelectMode(!selectMode); if (!selectMode) toast('Select mode: tap kana to add them to your Learn list.', 'ok'); }}
-        >
-          {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
-        </Button>
-        <Link href="/learn?tab=kana" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({sel.length})</Link>
-        <Button size="sm" variant="ghost" onClick={() => { pref('sel_kana', []); toast('Selection cleared.', 'ok'); }}>
-          ✕ {t('Clear selection')} ({sel.length})
-        </Button>
+        <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 shadow-sm">
+          <Button
+            size="sm"
+            variant={selectMode ? 'secondary' : 'ghost'}
+            className={'gap-1 font-medium' + (selectMode ? ' ring-1 ring-primary/40' : ' text-muted-foreground')}
+            onClick={() => { setSelectMode(!selectMode); if (!selectMode) toast('Select mode: tap kana to add them to your Learn list.', 'ok'); }}
+          >
+            {selectMode ? '✓ ' + t('Done selecting') : '☑ ' + t('Select')}
+          </Button>
+          <Link href="/learn?tab=kana" className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
+            🎯 {t('Learn selected')}
+            <span className="rounded-full bg-primary-foreground/25 px-1.5 text-xs font-semibold leading-5">{sel.length}</span>
+          </Link>
+          <Button size="sm" variant="ghost" disabled={!sel.length} className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40" onClick={() => { pref('sel_kana', []); toast('Selection cleared.', 'ok'); }}>✕ {t('Clear selection')}</Button>
+        </div>
       </div>
       <div className="mb-6 grid grid-cols-4 gap-2 sm:grid-cols-8 md:grid-cols-10">
         {list.map((k, i) => {
