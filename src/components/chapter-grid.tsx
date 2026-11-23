@@ -23,6 +23,7 @@ export function ChapterGrid({
   searchPlaceholder,
   controls,
   countNoun,
+  showBoxes,
 }: {
   chapters: ChapterItem[];
   active: number | string;
@@ -34,6 +35,8 @@ export function ChapterGrid({
   controls?: React.ReactNode;
   /* noun for the count line under each chapter title, e.g. "kanji" → "11 kanji" */
   countNoun?: string;
+  /* false = hide the chapter boxes (used while a search is active) */
+  showBoxes?: boolean;
 }) {
   const { t } = useT();
   return (
@@ -50,7 +53,7 @@ export function ChapterGrid({
           {controls}
         </div>
       ) : null}
-      {/* chapter boxes — big number on top, chapter title, count underneath */}
+      {showBoxes === false ? null : (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {chapters.map((c) => {
           const key = c.extra ? 'c_' + c.n + '_x' : c.n;
@@ -88,6 +91,7 @@ export function ChapterGrid({
           );
         })}
       </div>
+      )}
     </div>
   );
 }

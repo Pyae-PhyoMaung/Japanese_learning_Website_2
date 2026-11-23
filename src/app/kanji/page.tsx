@@ -59,7 +59,7 @@ export default function KanjiPage() {
   }, []);
 
   const filtered = ALL.filter((k) => {
-    if (ch && !q && k.chapter !== ch) return false;
+    if (view === 'kanji' && ch && k.chapter !== ch) return false;
     if (q) {
       const needle = q.toLowerCase();
       const hay = [k.kanji, (k.on || []).join(' '), k.kun, k.meaning, k.en].join(' ').toLowerCase();
@@ -123,6 +123,7 @@ export default function KanjiPage() {
         </TabsList>
         <TabsContent value="learn">
           {view === 'chapters' ? (
+            <>
             <ChapterGrid
               chapters={[{ n: 0, t: 'All kanji', count: ALL.length, extra: true }].concat(
                 chs.map((c) => ({ n: c.n, t: chapterTitle('kanji', c.n, c.t) || c.t, count: ALL.filter((k) => k.chapter === c.n).length, extra: false }))
@@ -130,8 +131,9 @@ export default function KanjiPage() {
               active={ch}
               onPick={(n) => { setCh(Number(n)); setView('kanji'); syncUrl(); }}
               search={q}
-              onSearch={(v) => { setQ(v.trim()); if (v.trim()) setView('kanji'); syncUrl(); }}
+              onSearch={(v) => { setQ(v); syncUrl(); }}
               searchPlaceholder="Search kanji…"
+              showBoxes={!q}
               countNoun="kanji"
               controls={
                 <>
@@ -147,11 +149,28 @@ export default function KanjiPage() {
                 </>
               }
             />
+            {q ? (
+              <div>
+                <div className="mb-2 text-xs text-muted-foreground">{filtered.length} kanji</div>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                  {filtered.map((k) => (
+                    <KanjiCard key={k.id} k={k} selected={selectMode && (pref('sel_kanji') || []).includes(k.id)} onToggle={selectMode ? toggleSel : undefined} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            </>
           ) : (
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => { setView('chapters'); setQ(''); syncUrl(); }}>← {t('Chapters')}</Button>
-                <span className="font-medium">{q ? 'Search results' : ch ? ch + '章 ' + (chs.find((c) => c.n === ch)?.t || '') : 'All kanji'}</span>
+                <span className="font-medium">{ch ? ch + '章 ' + (chs.find((c) => c.n === ch)?.t || '') : q ? 'Search results' : 'All kanji'}</span>
+                <input
+                  value={q}
+                  onChange={(e) => { setQ(e.target.value); syncUrl(); }}
+                  placeholder={t('Search') + '…'}
+                  className="h-8 min-w-[160px] flex-1 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
                 <Button
                   size="sm"
                   variant={selectMode ? 'default' : 'outline'}

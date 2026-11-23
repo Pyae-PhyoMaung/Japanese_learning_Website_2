@@ -13,7 +13,6 @@ import { LevelBar } from '@/components/level-bar';
 import { PageHead } from '@/components/page-head';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { SpeakBtn } from '@/components/words';
 import { useT, useToast } from '@/components/providers';
 import { speak } from '@/lib/tts';
 import { shuffle, cn } from '@/lib/utils';
@@ -31,6 +30,7 @@ export default function LearnPage() {
   const [mode, setMode] = React.useState<'sel' | 'all' | 'chs'>('sel');
   const [picked, setPicked] = React.useState<string[]>([]);
   const [showCats, setShowCats] = React.useState(true);
+  const [q, setQ] = React.useState('');
   const [idx, setIdx] = React.useState(0);
   const [revealed, setRevealed] = React.useState(false);
   const [seed, setSeed] = React.useState(0);
@@ -88,11 +88,21 @@ export default function LearnPage() {
       : mode === 'sel' ? G.filter((g) => selG.includes(g.id))
         : mode === 'all' ? G
         : G.filter((g) => picked.includes(String(g.chapter || 0)));
+  const qLower = q.trim().toLowerCase();
+  const searchPool: any[] = qLower
+    ? (pool as any[]).filter((it) =>
+        [it.kanji, it.jp, it.c, it.title, it.kun, it.rd, it.romaji, it.meaning, it.mm, it.en, it.pattern]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(qLower)
+      )
+    : (pool as any[]);
   const pickedKey = picked.join(',');
-  const items = React.useMemo(() => shuffle(pool as any[]), [tab, mode, pickedKey, seed, mounted, jlv]);
+  const items = React.useMemo(() => shuffle(searchPool), [tab, mode, pickedKey, seed, mounted, jlv, qLower]);
   const cur: any = items[idx] || null;
 
-  React.useEffect(() => { setIdx(0); setRevealed(false); }, [tab, mode, pickedKey]);
+  React.useEffect(() => { setIdx(0); setRevealed(false); }, [tab, mode, pickedKey, qLower]);
   React.useEffect(() => {
     setImgUrl(null);
     if (cur && tab === 'kanji' && kimgGet(cur.id)) {
@@ -146,7 +156,7 @@ export default function LearnPage() {
           📖 {t('All')} ({totalCount})
         </button>
         <button type="button" onClick={() => setShowCats(!showCats)} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (showCats ? ' border-primary bg-primary text-primary-foreground' : '')}>
-          🗂️ {t('🗂️ Categories')}
+          {showCats ? '▾' : '▸'} {t('🗂️ Categories')}
         </button>
         {selCount > 0 ? (
           <button type="button" onClick={() => { pref('sel_' + tab, []); toast(t('Selection cleared.'), 'ok'); }} className="rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent">
@@ -201,14 +211,19 @@ export default function LearnPage() {
         <TabsContent value="kana">{chips}</TabsContent>
         <TabsContent value="grammar">{chips}</TabsContent>
       </Tabs>
+      <div className="mb-4">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t('Search') + '…'}
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+      {q ? <p className="mb-2 text-xs text-muted-foreground">{items.length} / {pool.length}</p> : null}
       {items.length ? (
         <div className="mx-auto max-w-md space-y-4 rounded-2xl border bg-card p-8 text-center shadow-sm">
           <div className="text-xs text-muted-foreground">{idx + 1} / {items.length}</div>
           <div className={tab === 'grammar' ? 'text-3xl font-semibold' : 'text-7xl'}>{cur.kanji || cur.jp || cur.c || cur.title}</div>
-          <div className="flex items-center justify-center gap-2">
-            <SpeakBtn text={cur.kanji || cur.jp || cur.c || (cur.examples && cur.examples[0] ? cur.examples[0].jp : '')} className="text-lg" />
-            <button type="button" className="rounded-md px-2 py-1 text-sm hover:bg-accent" onClick={() => setSeed((s) => s + 1)}>🔀</button>
-          </div>
           {revealed ? (
             <div className="space-y-1">
               {cur.kun || (cur.on && cur.on.length) ? <div className="text-sm text-muted-foreground">{cur.kun || (cur.on || []).join('、')}</div> : null}
@@ -229,15 +244,19 @@ export default function LearnPage() {
           ) : (
             <p className="text-sm text-muted-foreground">{t('Try to remember it, then reveal.')}</p>
           )}
-          <div className="flex justify-center gap-2">
-            <Button onClick={() => { setRevealed(!revealed); if (!revealed) speak(cur.kanji || cur.jp || cur.c || (cur.examples && cur.examples[0] ? cur.examples[0].jp : '') || ''); }}>{revealed ? t('Hide') : t('Reveal')}</Button>
-            <Button variant="outline" onClick={() => { setIdx((idx - 1 + items.length) % items.length); setRevealed(false); }}>← {t('Prev')}</Button>
-            <Button variant="outline" onClick={() => { setIdx((idx + 1) % items.length); setRevealed(false); }}>{t('Next')} →</Button>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button variant="outline" onClick={() => speak(cur.kanji || cur.jp || cur.c || (cur.examples && cur.examples[0] ? cur.examples[0].jp : '') || '')}>{t('🔊 Listen')}</Button>
+            <Button onClick={() => { setRevealed(!revealed); if (!revealed) speak(cur.kanji || cur.jp || cur.c || (cur.examples && cur.examples[0] ? cur.examples[0].jp : '') || ''); }}>{revealed ? t('🙈 Hide') : t('👀 Reveal')}</Button>
             {(tab === 'kanji' || tab === 'vocab') ? (
               <Link href={'/write?tab=' + tab + '&' + (tab === 'kanji' ? 'k=' + encodeURIComponent(cur.kanji) : 'v=' + cur.id)}>
-                <Button variant="ghost">✍️</Button>
+                <Button variant="outline">{t('✍️ Write')}</Button>
               </Link>
             ) : null}
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button variant="outline" onClick={() => { setIdx((idx - 1 + items.length) % items.length); setRevealed(false); }}>{t('← Prev')}</Button>
+            <Button onClick={() => { setIdx((idx + 1) % items.length); setRevealed(false); }}>{t('Next →')}</Button>
+            <Button variant="outline" onClick={() => { setSeed((s) => s + 1); setIdx(0); setRevealed(false); }}>{t('🔀 Shuffle')}</Button>
           </div>
         </div>
       ) : (
