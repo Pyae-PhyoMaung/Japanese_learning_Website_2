@@ -23,10 +23,10 @@ export function getUser(): UserRecord {
   try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (e) { return {}; }
 }
 
-export function setUser(u: UserRecord) {
+export function setUser(u: UserRecord, silent?: boolean) {
   u._sync = { at: Date.now(), dev: String(navigator.userAgent || '').slice(0, 40) };
   try { localStorage.setItem(STORE_KEY, JSON.stringify(u)); } catch (e) {}
-  notify();
+  if (!silent) notify();
   schedulePush();
 }
 
@@ -46,7 +46,7 @@ function kindStore(kind: string): any {
   return u as any;
 }
 
-export function save(kind: string, item: any) {
+export function save(kind: string, item: any, silent?: boolean) {
   item = mmfixValue(item);
   const u = kindStore(kind);
   const s: KindStore = (u as any)[kind];
@@ -56,7 +56,7 @@ export function save(kind: string, item: any) {
   } else {
     s.edited[item.id] = item; // full override of the base entry
   }
-  setUser(u);
+  setUser(u, silent);
 }
 
 export function remove(kind: string, id: string) {

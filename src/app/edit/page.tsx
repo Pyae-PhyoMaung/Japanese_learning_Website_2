@@ -9,7 +9,7 @@
    Vocabulary page. */
 import * as React from 'react';
 import { kanjiList, vocabList, grammarList, sentenceList, kexVocab, merged, chapters, chapterTitle, useJL } from '@/lib/jl';
-import { pref, save, remove, getUser, setUser } from '@/lib/store';
+import { pref, save, remove, getUser, setUser, notify } from '@/lib/store';
 import { PageHead } from '@/components/page-head';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -155,14 +155,17 @@ export default function EditPage() {
            that same record. Before, brand-new words were only stored when the
            💾 button was pressed — now typing alone is enough (legacy
            behaviour). */
+        /* autosave is silent (no notify) — like the legacy edit.html, typing
+           never re-renders the lists; they refresh on manual save, tab
+           switch, level change or other store actions */
         if (!f.id) {
-          save(kind, item);
+          save(kind, item, true);
           if (kind === 'vocab') setVf((g: any) => ({ ...g, id: item.id }));
           else if (kind === 'kanji') setKf((g: any) => ({ ...g, id: item.id }));
           else setGf((g: any) => ({ ...g, id: item.id }));
           return;
         }
-        save(kind, item);
+        save(kind, item, true);
       });
     }, 700);
     return () => clearTimeout(saveTimer.current);
@@ -180,21 +183,21 @@ export default function EditPage() {
     toast('Saved ✅ (synced to your cloud)', 'ok');
   };
 
-  const loadVocab = (it: any) => setVf({
+  const loadVocab = React.useCallback((it: any) => setVf({
     id: it.id, jp: it.jp || '', rd: it.rd || '', romaji: it.romaji || '', en: it.en || '', mm: it.mm || '',
     cat: it.cat || '', ch: it.chapter || 0, lvl: it.level || 'N5', syn: it.syn || '', ant: it.ant || '',
-  });
-  const loadKanji = (it: any) => setKf({
+  }), []);
+  const loadKanji = React.useCallback((it: any) => setKf({
     id: it.id, kanji: it.kanji || '', on: Array.isArray(it.on) ? it.on.join(', ') : it.on || '', kun: it.kun || '',
     mm: it.meaning || '', en: it.en || '', ch: it.chapter || 1, lvl: it.level || 'N5',
     exs: it.examples && it.examples.length ? it.examples.map((e: any) => ({ w: e.word || '', r: e.reading || '', m: e.meaning || '' })) : [{ w: '', r: '', m: '' }],
-  });
-  const loadGrammar = (it: any) => setGf({
+  }), []);
+  const loadGrammar = React.useCallback((it: any) => setGf({
     id: it.id, ch: it.chapter || 1, lvl: it.level || 'N5', lesson: it.lesson ? String(it.lesson) : '',
     title: it.title || '', pattern: it.pattern || '', meaning: it.meaning || '', mm: it.mm || '', expl: it.explanation || '',
     exs: it.examples && it.examples.length ? it.examples.map((e: any) => ({ jp: e.jp || '', rd: e.rd || '', en: e.en || '' })) : [{ jp: '', rd: '', en: '' }],
     exer: it.exercises && it.exercises.length ? it.exercises.map((e: any) => ({ q: e.q || '', c: e.opts[0] || '', w1: e.opts[1] || '', w2: e.opts[2] || '' })) : [{ q: '', c: '', w1: '', w2: '' }],
-  });
+  }), []);
 
   /* ---------- tests builders ---------- */
   const saveQuiz = () => {
@@ -355,6 +358,48 @@ export default function EditPage() {
     </span>
   );
 
+  /* the heavy tables are memoized as JSX row arrays — the legacy edit.html
+     re-renders NOTHING while you type (plain DOM inputs, silent saves). The
+     React equivalent: a keystroke re-renders the form only; these arrays keep
+     their element identity between renders, so React skips re-rendering the
+     whole table on every keystroke and only rebuilds it when the data,
+     filters or language actually change. */
+  /* eslint-disable react-hooks/exhaustive-deps */
+  const vTableRows = React.useMemo(() => vFiltered.map((it) => {
+    const isKex = String(it.id || '').startsWith('kex_');
+    return (
+      <tr key={it.id} className="border-b last:border-b-0">
+        <td className="px-3 py-2"><span className="font-medium">{it.jp}</span>{lvlBadge(it)}</td>
+        <td className="px-3 py-2 text-muted-foreground">{it.rd}</td>
+        <td className="px-3 py-2">{it.mm || it.en}</td>
+        <td className="px-3 py-2 text-muted-foreground">{it.chapter ? it.chapter + '章 ' + chapterTitle('vocab', it.chapter, it.chapterTitle || '') : (it.cat || '')}</td>
+        <td className="px-3 py-2 text-right">
+          {isKex ? <span className="text-xs text-muted-foreground">{t('read-only')}</span> : editDelete(() => loadVocab(it), 'vocab', it.id)}
+        </td>
+      </tr>
+    );
+  }), [vFiltered, t, loadVocab, toast]);
+  const gTableRows = React.useMemo(() => gFiltered.map((it) => (
+    <tr key={it.id} className="border-b last:border-b-0">
+      <td className="px-3 py-2"><span className="font-medium">{it.title}</span>{lvlBadge(it)}</td>
+      <td className="px-3 py-2 text-muted-foreground">{it.pattern}</td>
+      <td className="px-3 py-2">{it.mm || it.meaning}</td>
+      <td className="px-3 py-2 text-muted-foreground">{it.chapter || ''}</td>
+      <td className="px-3 py-2 text-right">{editDelete(() => loadGrammar(it), 'grammar', it.id)}</td>
+    </tr>
+  )), [gFiltered, t, loadGrammar, toast]);
+  const kTableRows = React.useMemo(() => kFiltered.map((it) => (
+    <tr key={it.id} className="border-b last:border-b-0">
+      <td className="px-3 py-2"><span className="font-medium">{it.kanji}</span>{lvlBadge(it)}</td>
+      <td className="px-3 py-2 text-muted-foreground">{Array.isArray(it.on) ? it.on.join('・') : it.on}</td>
+      <td className="px-3 py-2 text-muted-foreground">{it.kun}</td>
+      <td className="px-3 py-2">{it.en || it.meaning}</td>
+      <td className="px-3 py-2 text-muted-foreground">{it.chapter || ''}</td>
+      <td className="px-3 py-2 text-right">{editDelete(() => loadKanji(it), 'kanji', it.id)}</td>
+    </tr>
+  )), [kFiltered, t, loadKanji, toast]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+
   const tabLabel = (k: string) => (k === 'vocab' ? t('Vocabulary') : k === 'grammar' ? t('Grammar') : k === 'kanji' ? t('Kanji') : k === 'chapters' ? t('Chapters') : k === 'tests' ? t('Tests') : t('Backup'));
 
   return (
@@ -368,7 +413,7 @@ export default function EditPage() {
         </select>
         <span className="text-xs text-muted-foreground">{t('New entries get the level chosen inside each form. Base book data is N5.')}</span>
       </div>
-      <Tabs value={tab} onValueChange={(v) => { setTab(v); setRen(null); }}>
+      <Tabs value={tab} onValueChange={(v) => { setTab(v); setRen(null); notify(); /* refresh lists after silent autosaves */ }}>
         <TabsList className="mb-4 flex-wrap">
           {['vocab', 'grammar', 'kanji', 'chapters', 'tests', 'backup'].map((k) => (
             <TabsTrigger key={k} value={k}>{tabLabel(k)}</TabsTrigger>
@@ -415,20 +460,7 @@ export default function EditPage() {
             <table className="w-full text-sm">
               <thead><tr><Th>{t('JAPANESE')}</Th><Th>{t('READING')}</Th><Th>{t('MEANING')}</Th><Th>{t('CATEGORY')}</Th><Th /></tr></thead>
               <tbody>
-                {vFiltered.map((it) => {
-                  const isKex = String(it.id || '').startsWith('kex_');
-                  return (
-                    <tr key={it.id} className="border-b last:border-b-0">
-                      <td className="px-3 py-2"><span className="font-medium">{it.jp}</span>{lvlBadge(it)}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{it.rd}</td>
-                      <td className="px-3 py-2">{it.mm || it.en}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{it.chapter ? it.chapter + '章 ' + chapterTitle('vocab', it.chapter, it.chapterTitle || '') : (it.cat || '')}</td>
-                      <td className="px-3 py-2 text-right">
-                        {isKex ? <span className="text-xs text-muted-foreground">{t('read-only')}</span> : editDelete(() => loadVocab(it), 'vocab', it.id)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {vTableRows}
               </tbody>
             </table>
           </div>
@@ -495,15 +527,7 @@ export default function EditPage() {
             <table className="w-full text-sm">
               <thead><tr><Th>{t('TITLE')}</Th><Th>{t('PATTERN')}</Th><Th>{t('MEANING')}</Th><Th>{t('CH.')}</Th><Th /></tr></thead>
               <tbody>
-                {gFiltered.map((it) => (
-                  <tr key={it.id} className="border-b last:border-b-0">
-                    <td className="px-3 py-2"><span className="font-medium">{it.title}</span>{lvlBadge(it)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{it.pattern}</td>
-                    <td className="px-3 py-2">{it.mm || it.meaning}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{it.chapter || ''}</td>
-                    <td className="px-3 py-2 text-right">{editDelete(() => loadGrammar(it), 'grammar', it.id)}</td>
-                  </tr>
-                ))}
+                {gTableRows}
               </tbody>
             </table>
           </div>
@@ -554,16 +578,7 @@ export default function EditPage() {
             <table className="w-full text-sm">
               <thead><tr><Th>{t('KANJI')}</Th><Th>{t('ON')}</Th><Th>{t('KUN')}</Th><Th>{t('MEANING')}</Th><Th>{t('CH.')}</Th><Th /></tr></thead>
               <tbody>
-                {kFiltered.map((it) => (
-                  <tr key={it.id} className="border-b last:border-b-0">
-                    <td className="px-3 py-2"><span className="font-medium">{it.kanji}</span>{lvlBadge(it)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{Array.isArray(it.on) ? it.on.join('・') : it.on}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{it.kun}</td>
-                    <td className="px-3 py-2">{it.en || it.meaning}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{it.chapter || ''}</td>
-                    <td className="px-3 py-2 text-right">{editDelete(() => loadKanji(it), 'kanji', it.id)}</td>
-                  </tr>
-                ))}
+                {kTableRows}
               </tbody>
             </table>
           </div>
