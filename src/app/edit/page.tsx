@@ -586,6 +586,14 @@ export default function EditPage() {
                 <div className="flex items-end"><Button onClick={saveChapter}>💾 {t('Add / update chapter')}</Button></div>
               </div>
             </div>
+            {ren ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
+                <Label>{t('Chapter')} {ren.n}</Label>
+                <Input value={ren.t} onChange={(e) => setRen({ ...ren, t: e.target.value })} onBlur={(e) => { const fx = fixField(e.target.value); setRen({ ...ren, t: fx.value }); }} className="flex-1" />
+                <Button size="sm" onClick={saveRen}>{t('Save')}</Button>
+                <Button size="sm" variant="ghost" onClick={() => setRen(null)}>{t('Close')}</Button>
+              </div>
+            ) : null}
             <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
               <table className="w-full text-sm">
                 <thead><tr><Th>CH</Th><Th>{t('TITLE')}</Th><Th>{t('KANJI')}</Th><Th>{t('VOCAB')}</Th><Th>{t('GRAMMAR')}</Th><Th>{t('LISTEN')}</Th><Th>{t('TESTS')}</Th><Th /></tr></thead>
@@ -610,14 +618,6 @@ export default function EditPage() {
                 </tbody>
               </table>
             </div>
-            {ren ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
-                <Label>{t('Chapter')} {ren.n}</Label>
-                <Input value={ren.t} onChange={(e) => setRen({ ...ren, t: e.target.value })} onBlur={(e) => { const fx = fixField(e.target.value); setRen({ ...ren, t: fx.value }); }} className="flex-1" />
-                <Button size="sm" onClick={saveRen}>{t('Save')}</Button>
-                <Button size="sm" variant="ghost" onClick={() => setRen(null)}>{t('Close')}</Button>
-              </div>
-            ) : null}
           </div>
         </TabsContent>
 
