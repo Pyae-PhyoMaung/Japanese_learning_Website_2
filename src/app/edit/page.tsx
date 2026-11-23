@@ -1,13 +1,15 @@
 'use client';
 
-/* Add / Edit — port of edit.html: manage your own items on top of the base
-   data for every kind (kanji, vocab, grammar, sentences, tests), rename
-   chapters (uchapters registry), back up & restore your whole user record,
-   and see stats. Deletes use tombstones and can be restored; kex (kanji
-   example) words are listed read-only so counts match the Vocabulary page. */
+/* Add / Edit — port of edit.html: inline add/edit forms per tab (Vocabulary,
+   Grammar, Kanji) with example/exercise repeaters, category chips, search
+   tables and a Show level filter, plus Chapters (rename/add), Tests (quiz
+   and flashcard deck builders) and Backup. Entries save as you type once
+   they have an id (the 💾 buttons still work); deletes use tombstones and
+   kex (kanji example) words are listed read-only so counts match the
+   Vocabulary page. */
 import * as React from 'react';
-import { kanjiList, vocabList, grammarList, sentenceList, kexVocab, merged, chapters, chapterTitle, useJL } from '@/lib/jl';
-import { pref, save, remove, restore, getUser, setUser } from '@/lib/store';
+import { kanjiList, vocabList, grammarList, kexVocab, merged, chapters, chapterTitle, useJL } from '@/lib/jl';
+import { pref, save, remove, getUser, setUser } from '@/lib/store';
 import { PageHead } from '@/components/page-head';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -19,133 +21,210 @@ import { useT, useToast } from '@/components/providers';
 import { uid, download } from '@/lib/utils';
 import { fixField } from '@/lib/zg';
 import type { UserTest } from '@/lib/types';
+import Link from 'next/link';
 
-const KIND_TABS = ['kanji', 'vocab', 'grammar', 'sentences', 'tests', 'chapters', 'backup', 'stats'] as const;
-const KLABEL: Record<string, string> = { kanji: 'Kanji', vocab: 'Vocabulary', grammar: 'Grammar', sentences: 'Sentences', tests: 'Tests', chapters: 'Chapters', backup: 'Backup', stats: 'Stats' };
+const selectCls = 'h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm';
+const cellCls = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
 
-/* field definitions per kind — [key, label, multiline?] */
-const FIELDS: Record<string, Array<[string, string, boolean?]>> = {
-  kanji: [['kanji', 'Kanji'], ['on', 'ON (comma-separated)'], ['kun', 'KUN'], ['meaning', 'Myanmar meaning', true], ['en', 'English meaning'], ['chapter', 'Chapter'], ['chapterTitle', 'Chapter title'], ['level', 'Level (N5–N1)']],
-  vocab: [['jp', 'Word'], ['rd', 'Reading'], ['mm', 'Myanmar meaning', true], ['en', 'English meaning'], ['syn', 'Synonyms'], ['ant', 'Antonyms'], ['chapter', 'Chapter'], ['chapterTitle', 'Chapter title'], ['level', 'Level (N5–N1)']],
-  grammar: [['title', 'Title'], ['pattern', 'Pattern'], ['meaning', 'Meaning'], ['mm', 'Myanmar explanation', true], ['lesson', 'Lesson'], ['chapter', 'Chapter'], ['chapterTitle', 'Chapter title'], ['level', 'Level (N5–N1)'], ['examples', 'Examples (jp | rd | en — one per line)', true]],
-  sentences: [['jp', 'Sentence'], ['rd', 'Reading'], ['mm', 'Myanmar', true], ['en', 'English'], ['cat', 'Category'], ['chapter', 'Chapter'], ['chapterTitle', 'Chapter title'], ['level', 'Level (N5–N1)']],
-  tests: [['title', 'Test title'], ['kind', 'Type: quiz or deck'], ['level', 'Level (N5–N1)'], ['chapter', 'Chapter'], ['items', 'Items — quiz: q | opt1 | opt2 | … | ANSWER-NUMBER (1-based), one per line; deck: front | back, one per line', true]],
-};
+const F = ({ label, children }: any) => (
+  <div className="space-y-1">
+    <Label className="text-xs font-normal text-muted-foreground">{label}</Label>
+    {children}
+  </div>
+);
 
-function blankItem(kind: string): any {
-  const it: any = { id: uid('u_'), level: 'N5', chapter: 0, chapterTitle: '' };
-  (FIELDS[kind] || []).forEach(([k]) => { if (!(k in it)) it[k] = ''; });
-  return it;
-}
-
-function parseSpecial(kind: string, it: any): any {
-  const out = { ...it };
-  if (kind === 'grammar' && typeof out.examples === 'string') {
-    out.examples = (out.examples as string).split('\n').map((l) => l.trim()).filter(Boolean)
-      .map((l) => { const [jp, rd = '', en = ''] = l.split('|').map((x) => x.trim()); return { jp, rd, en }; });
-  }
-  if (kind === 'tests') {
-    out.kind = out.kind === 'deck' ? 'deck' : 'quiz';
-    if (typeof out.items === 'string') {
-      out.items = (out.items as string).split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
-        const parts = l.split('|').map((x) => x.trim());
-        if (out.kind === 'deck') return { front: parts[0], back: parts[1] || '' };
-        const ans = parseInt(parts[parts.length - 1], 10) || 1;
-        const opts = parts.slice(1, parts.length - 1);
-        return { q: parts[0], opts, ans: ans - 1 };
-      });
-    }
-  }
-  ['chapter', 'lesson'].forEach((k) => { if (out[k] !== '' && out[k] != null) out[k] = Number(out[k]) || 0; });
-  return out;
-}
+const Th = ({ children }: any) => (
+  <th className="border-b px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</th>
+);
 
 export default function EditPage() {
   useJL();
   const { t } = useT();
   const toast = useToast();
   const [mounted, setMounted] = React.useState(false);
-  const [tab, setTab] = React.useState<string>('kanji');
-  const [editing, setEditing] = React.useState<any>(null);
-  const [editKind, setEditKind] = React.useState<string>('kanji');
-  const [q, setQ] = React.useState('');
+  const [tab, setTab] = React.useState<string>('vocab');
+  const [showLvl, setShowLvl] = React.useState('all');
+
+  /* forms — blank builders give each form its legacy field set */
+  const blankV = () => ({ id: '', jp: '', rd: '', romaji: '', en: '', mm: '', cat: '', ch: 0, lvl: 'N5', syn: '', ant: '' });
+  const blankK = () => ({ id: '', kanji: '', on: '', kun: '', mm: '', en: '', ch: 1, lvl: 'N5', exs: [{ w: '', r: '', m: '' }] });
+  const blankG = () => ({ id: '', ch: 1, lvl: 'N5', lesson: '', title: '', pattern: '', meaning: '', mm: '', expl: '', exs: [{ jp: '', rd: '', en: '' }], exer: [{ q: '', c: '', w1: '', w2: '' }] });
+  const [vf, setVf] = React.useState<any>(blankV);
+  const [kf, setKf] = React.useState<any>(blankK);
+  const [gf, setGf] = React.useState<any>(blankG);
+
+  /* tests builders */
+  const [qzT, setQzT] = React.useState('');
+  const [qzCh, setQzCh] = React.useState(0);
+  const [qz, setQz] = React.useState<any[]>([{ q: '', c: '', w1: '', w2: '' }]);
+  const [dkT, setDkT] = React.useState('');
+  const [dkCh, setDkCh] = React.useState(0);
+  const [dk, setDk] = React.useState<any[]>([{ front: '', back: '' }]);
+
+  /* list filters */
+  const [vq, setVq] = React.useState('');
+  const [kq, setKq] = React.useState('');
+  const [gq, setGq] = React.useState('');
+  const [vCh, setVCh] = React.useState('all');
+  const [kCh, setKCh] = React.useState('all');
+  const [gCh, setGCh] = React.useState('all');
+  const [showCats, setShowCats] = React.useState(true);
+
+  /* chapters tab */
   const [ren, setRen] = React.useState<{ n: number; t: string } | null>(null);
+  const [nchN, setNchN] = React.useState('');
+  const [nchT, setNchT] = React.useState('');
 
-  React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => { setMounted(true); }, []);
 
-  const lists: Record<string, any[]> = mounted
-    ? {
-        kanji: kanjiList(),
-        vocab: vocabList().concat(kexVocab()),
-        grammar: grammarList(),
-        sentences: sentenceList(),
-        tests: merged<UserTest>('tests'),
-      }
-    : { kanji: [], vocab: [], grammar: [], sentences: [], tests: [] };
+  const lvls = ['N5', 'N4', 'N3', 'N2', 'N1'];
+  const lvlOf = (arr: any[]) => (showLvl === 'all' ? arr : arr.filter((x) => (x.level || 'N5') === showLvl));
+  const vocabAll: any[] = mounted ? lvlOf(vocabList()) : [];
+  const kexAll: any[] = mounted
+    ? (showLvl === 'all' ? lvls.flatMap((l) => kexVocab(l)) : kexVocab(showLvl))
+    : [];
+  const kanjiAll: any[] = mounted ? lvlOf(kanjiList()) : [];
+  const gramAll: any[] = mounted ? lvlOf(grammarList()) : [];
+  const testsList: UserTest[] = mounted ? lvlOf(merged<UserTest>('tests')) : [];
+  const chBook: any[] = mounted ? chapters('kanji') : [];
+  const uchapters: Array<{ n: number; t: string; lvl?: string }> = (mounted ? pref('uchapters') : []) || [];
 
-  const startAdd = () => { setEditKind(tab); setEditing(blankItem(tab)); };
-  const startEdit = (it: any) => {
-    const copy = { ...it };
-    if (editKindOrTab(it) === 'grammar' && copy.examples) copy.examples = (copy.examples as any[]).map((e) => [e.jp, e.rd, e.en].join(' | ')).join('\n');
-    if (copy.kind === 'quiz' && copy.items) copy.items = copy.items.map((i: any) => [i.q].concat(i.opts).concat([String(i.ans + 1)]).join(' | ')).join('\n');
-    if (copy.kind === 'deck' && copy.items) copy.items = copy.items.map((i: any) => [i.front, i.back].join(' | ')).join('\n');
-    if (Array.isArray(copy.on)) copy.on = copy.on.join(', ');
-    setEditKind(editKindOrTab(it)); setEditing(copy);
+  const chT = (n: number) => {
+    const c = chBook.find((x) => Number(x.n) === Number(n));
+    return chapterTitle('kanji', n, c ? c.t || '' : '');
   };
-  const editKindOrTab = (it: any): string =>
-    it.kind === 'quiz' || it.kind === 'deck' ? 'tests' : String(it.id || '').startsWith('kex_') ? 'vocab' : it.kanji ? 'kanji' : it.title ? (it.pattern != null || it.lesson != null ? 'grammar' : 'tests') : it.jp ? (it.rd != null && it.cat != null ? 'vocab' : 'sentences') : tab;
-  const commit = () => {
-    if (!editing) return;
-    const item = parseSpecial(editKind, editing);
-    if (!item.jp && !item.kanji && !item.title && !item.q) { toast('Fill the main field first.', 'warn'); return; }
-    save(editKind, item);
+
+  /* ---------- parse forms into stored items ---------- */
+  const parseVocab = (f: any) => {
+    const it: any = {
+      id: f.id || uid('u_'),
+      jp: f.jp.trim(), rd: f.rd.trim(), romaji: f.romaji.trim(),
+      en: f.en.trim(), mm: f.mm.trim(), syn: f.syn.trim(), ant: f.ant.trim(),
+      level: f.lvl, chapter: 0, chapterTitle: '', cat: '',
+    };
+    if (Number(f.ch) > 0) { it.chapter = Number(f.ch); it.chapterTitle = chT(it.chapter); }
+    else if (f.cat.trim()) it.cat = f.cat.trim();
+    return it;
+  };
+  const parseKanji = (f: any) => ({
+    id: f.id || uid('u_'),
+    kanji: f.kanji.trim(),
+    on: f.on.split(/[,,、]/).map((s: string) => s.trim()).filter(Boolean),
+    kun: f.kun.trim(),
+    meaning: f.mm.trim(),
+    en: f.en.trim(),
+    chapter: Number(f.ch) || 0,
+    chapterTitle: chT(Number(f.ch) || 0),
+    level: f.lvl,
+    examples: f.exs.filter((e: any) => e.w.trim()).map((e: any) => ({ word: e.w.trim(), reading: e.r.trim(), meaning: e.m.trim() })),
+  });
+  const parseGrammar = (f: any) => ({
+    id: f.id || uid('u_'),
+    chapter: Number(f.ch) || 0,
+    chapterTitle: chT(Number(f.ch) || 0),
+    level: f.lvl,
+    lesson: Number(f.lesson) || 0,
+    title: f.title.trim(), pattern: f.pattern.trim(), meaning: f.meaning.trim(), mm: f.mm.trim(), explanation: f.expl.trim(),
+    examples: f.exs.filter((e: any) => e.jp.trim()).map((e: any) => ({ jp: e.jp.trim(), rd: e.rd.trim(), en: e.en.trim() })),
+    exercises: f.exer.filter((e: any) => e.q.trim() && e.c.trim()).map((e: any) => ({ q: e.q.trim(), opts: [e.c, e.w1, e.w2].map((x) => x.trim()).filter(Boolean), ans: 0 })),
+  });
+
+  /* ---------- autosave as you type (entries that have an id) ---------- */
+  const saveTimer = React.useRef<any>(null);
+  React.useEffect(() => {
+    if (!mounted) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      ([['vocab', vf], ['kanji', kf], ['grammar', gf]] as Array<[string, any]>).forEach(([kind, f]) => {
+        if (!f.id) return;
+        const item = kind === 'vocab' ? parseVocab(f) : kind === 'kanji' ? parseKanji(f) : parseGrammar(f);
+        if (!item.jp && !item.kanji && !item.title) return;
+        save(kind, item);
+      });
+    }, 700);
+    return () => clearTimeout(saveTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vf, kf, gf, mounted]);
+
+  const manualSave = (kind: 'vocab' | 'kanji' | 'grammar') => {
+    const f = kind === 'vocab' ? vf : kind === 'kanji' ? kf : gf;
+    const item = kind === 'vocab' ? parseVocab(f) : kind === 'kanji' ? parseKanji(f) : parseGrammar(f);
+    if (!item.jp && !item.kanji && !item.title) { toast('Fill the main field first.', 'warn'); return; }
+    if (kind === 'vocab') setVf((g: any) => ({ ...g, id: item.id }));
+    else if (kind === 'kanji') setKf((g: any) => ({ ...g, id: item.id }));
+    else setGf((g: any) => ({ ...g, id: item.id }));
+    save(kind, item);
     toast('Saved ✅ (synced to your cloud)', 'ok');
-    setEditing(null);
   };
 
-  const searchHit = (it: any) =>
-    !q || JSON.stringify(it).toLowerCase().includes(q.toLowerCase());
+  const loadVocab = (it: any) => setVf({
+    id: it.id, jp: it.jp || '', rd: it.rd || '', romaji: it.romaji || '', en: it.en || '', mm: it.mm || '',
+    cat: it.cat || '', ch: it.chapter || 0, lvl: it.level || 'N5', syn: it.syn || '', ant: it.ant || '',
+  });
+  const loadKanji = (it: any) => setKf({
+    id: it.id, kanji: it.kanji || '', on: Array.isArray(it.on) ? it.on.join(', ') : it.on || '', kun: it.kun || '',
+    mm: it.meaning || '', en: it.en || '', ch: it.chapter || 1, lvl: it.level || 'N5',
+    exs: it.examples && it.examples.length ? it.examples.map((e: any) => ({ w: e.word || '', r: e.reading || '', m: e.meaning || '' })) : [{ w: '', r: '', m: '' }],
+  });
+  const loadGrammar = (it: any) => setGf({
+    id: it.id, ch: it.chapter || 1, lvl: it.level || 'N5', lesson: it.lesson ? String(it.lesson) : '',
+    title: it.title || '', pattern: it.pattern || '', meaning: it.meaning || '', mm: it.mm || '', expl: it.explanation || '',
+    exs: it.examples && it.examples.length ? it.examples.map((e: any) => ({ jp: e.jp || '', rd: e.rd || '', en: e.en || '' })) : [{ jp: '', rd: '', en: '' }],
+    exer: it.exercises && it.exercises.length ? it.exercises.map((e: any) => ({ q: e.q || '', c: e.opts[0] || '', w1: e.opts[1] || '', w2: e.opts[2] || '' })) : [{ q: '', c: '', w1: '', w2: '' }],
+  });
 
-  const renderList = (kind: string) => {
-    const list = (lists[kind] || []).filter(searchHit);
-    return (
-      <div>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search')} className="h-8 w-48" />
-          <Button size="sm" onClick={startAdd}>➕ {t('Add new')}</Button>
-          <span className="text-xs text-muted-foreground">{list.length} {t('items')}</span>
-        </div>
-        <div className="space-y-2">
-          {list.map((it) => {
-            const isKex = String(it.id).startsWith('kex_');
-            const main = it.kanji || it.jp || it.title || '?';
-            const sub = it.kind ? it.kind + ' · ' + (it.items ? it.items.length + ' items' : '') : [it.mm, it.en, it.meaning, it.rd, it.kun].filter(Boolean).join(' · ');
-            const isDeleted = !isKex && (getUser() as any)[kind] && (getUser() as any)[kind].deleted && (getUser() as any)[kind].deleted[it.id];
-            return (
-              <div key={it.id} className={'flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm' + (isDeleted ? ' opacity-60' : '')}>
-                <span className="w-24 truncate font-medium">{main}</span>
-                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{sub}</span>
-                {isKex ? <Badge variant="outline">kex</Badge> : null}
-                {!isKex && !isDeleted ? (
-                  <>
-                    <Button size="sm" variant="ghost" onClick={() => startEdit(it)}>✏️</Button>
-                    <Button size="sm" variant="ghost" onClick={() => { remove(kind, it.id); toast('Removed (you can restore it below). 🗑', 'ok'); }}>🗑</Button>
-                  </>
-                ) : null}
-                {isDeleted ? (
-                  <Button size="sm" variant="outline" onClick={() => { restore(kind, it.id); toast('Restored ♻️', 'ok'); }}>{t('Restore')}</Button>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
+  /* ---------- tests builders ---------- */
+  const saveQuiz = () => {
+    const items = qz.filter((r) => r.q.trim()).map((r) => ({
+      q: r.q.trim(), opts: [r.c, r.w1, r.w2].map((x) => x.trim()).filter(Boolean), ans: 0,
+    }));
+    if (!qzT.trim() || !items.length) { toast('Fill the main field first.', 'warn'); return; }
+    save('tests', { id: uid('u_'), title: qzT.trim(), kind: 'quiz', items, level: 'N5', chapter: Number(qzCh) || 0 });
+    toast('Test saved.', 'ok');
+    setQzT(''); setQzCh(0); setQz([{ q: '', c: '', w1: '', w2: '' }]);
+  };
+  const saveDeck = () => {
+    const items = dk.filter((r) => r.front.trim()).map((r) => ({ front: r.front.trim(), back: r.back.trim() }));
+    if (!dkT.trim() || !items.length) { toast('Fill the main field first.', 'warn'); return; }
+    save('tests', { id: uid('u_'), title: dkT.trim(), kind: 'deck', items, level: 'N5', chapter: Number(dkCh) || 0 });
+    toast('Test saved.', 'ok');
+    setDkT(''); setDkCh(0); setDk([{ front: '', back: '' }]);
+  };
+  const loadTest = (ut: UserTest) => {
+    if (ut.kind === 'deck') {
+      setDkT(ut.title); setDkCh(ut.chapter || 0);
+      setDk(ut.items && ut.items.length ? ut.items.map((i: any) => ({ front: i.front || '', back: i.back || '' })) : [{ front: '', back: '' }]);
+    } else {
+      setQzT(ut.title); setQzCh(ut.chapter || 0);
+      setQz(ut.items && ut.items.length ? ut.items.map((i: any) => ({ q: i.q || '', c: i.opts[0] || '', w1: i.opts[1] || '', w2: i.opts[2] || '' })) : [{ q: '', c: '', w1: '', w2: '' }]);
+    }
   };
 
-  const chs = mounted ? chapters(tab === 'grammar' ? 'grammar' : 'kanji') : [];
-  const uchapters: Array<{ n: number; t: string; lvl: string }> = (mounted ? pref('uchapters') : []) || [];
+  /* ---------- chapters ---------- */
+  const saveChapter = () => {
+    const n = Number(nchN);
+    const tt = nchT.trim();
+    if (!n || !tt) { toast('Fill the main field first.', 'warn'); return; }
+    const arr = uchapters.filter((x) => Number(x.n) !== n);
+    arr.push({ n, t: tt });
+    pref('uchapters', arr);
+    toast('Chapter saved.', 'ok');
+    setNchN(''); setNchT('');
+  };
+  const delChapter = (n: number) => {
+    pref('uchapters', uchapters.filter((x) => Number(x.n) !== n));
+    toast('Chapter deleted.', 'ok');
+  };
+  const saveRen = () => {
+    if (!ren) return;
+    const arr = uchapters.filter((x) => Number(x.n) !== ren.n);
+    arr.push({ n: ren.n, t: ren.t.trim() });
+    pref('uchapters', arr);
+    toast('Chapter saved.', 'ok');
+    setRen(null);
+  };
 
+  /* ---------- backup ---------- */
   const backupExport = () => {
     download('japanese-learning-backup-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(getUser(), null, 1));
     toast('Backup downloaded 📥', 'ok');
@@ -157,120 +236,403 @@ export default function EditPage() {
       try {
         const data = JSON.parse(String(r.result));
         if (!data || typeof data !== 'object') throw new Error('bad');
-        setUser(data); /* merges on next cloud push — nothing is lost */
+        setUser(data);
         toast('Backup restored 📤 (it will merge into your cloud data)', 'ok');
       } catch (e) { toast('That file is not a valid backup.', 'err'); }
     };
     r.readAsText(f);
   };
+  const restoreAllDeleted = () => {
+    const u: any = getUser();
+    ['kanji', 'vocab', 'grammar', 'sentences', 'tests'].forEach((k) => { if (u[k]) u[k].deleted = {}; });
+    setUser(u);
+    toast('Restored all deleted base items ♻️', 'ok');
+  };
+  const resetAll = () => {
+    if (!window.confirm(t('Reset ALL your changes? This restores the original book data.'))) return;
+    const blank: any = {};
+    ['kanji', 'vocab', 'grammar', 'sentences', 'tests'].forEach((k) => { blank[k] = { added: [], edited: {}, deleted: {} }; });
+    setUser(blank);
+    toast('All changes reset 🗑', 'ok');
+  };
 
-  const stats = mounted
-    ? (() => {
-        const u: any = getUser();
-        const n = (k: string, f: string) => ((u[k] || {})[f] || []).length || Object.keys((u[k] || {})[f] || {}).length;
-        return {
-          added: KIND_TABS.slice(0, 5).map((k) => n(k, 'added')),
-          edited: KIND_TABS.slice(0, 5).map((k) => n(k, 'edited')),
-          deleted: KIND_TABS.slice(0, 5).map((k) => n(k, 'deleted')),
-        };
-      })()
-    : { added: [0, 0, 0, 0, 0], edited: [0, 0, 0, 0, 0], deleted: [0, 0, 0, 0, 0] };
+  /* ---------- filters, chips, tables ---------- */
+  const hit = (it: any, q: string) => !q || [it.jp, it.rd, it.romaji, it.mm, it.en, it.kanji, it.meaning, it.title, it.pattern].some((v) => v && String(v).toLowerCase().includes(q.toLowerCase()));
+  const vRows = vocabAll.concat(kexAll);
+  const vCounts: Record<number, number> = {};
+  vRows.forEach((it) => { const n = Number(it.chapter) || 0; if (n) vCounts[n] = (vCounts[n] || 0) + 1; });
+  const vFiltered = vRows.filter((it) => hit(it, vq) && (vCh === 'all' || String(it.chapter || 0) === vCh));
+  const kCounts: Record<number, number> = {};
+  kanjiAll.forEach((it) => { const n = Number(it.chapter) || 0; if (n) kCounts[n] = (kCounts[n] || 0) + 1; });
+  const kFiltered = kanjiAll.filter((it) => hit(it, kq) && (kCh === 'all' || String(it.chapter || 0) === kCh));
+  const gCounts: Record<number, number> = {};
+  gramAll.forEach((it) => { const n = Number(it.chapter) || 0; if (n) gCounts[n] = (gCounts[n] || 0) + 1; });
+  const gFiltered = gramAll.filter((it) => hit(it, gq) && (gCh === 'all' || String(it.chapter || 0) === gCh));
+
+  const chips = (val: string, set: (v: string) => void, counts: Record<number, number>) => (
+    <div className="flex flex-wrap gap-2">
+      <button type="button" onClick={() => set('all')} className={'rounded-full border px-3 py-1 text-sm ' + (val === 'all' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent')}>{t('All')}</button>
+      {chBook.map((c) => (
+        <button key={c.n} type="button" onClick={() => set(String(c.n))} className={'rounded-full border px-3 py-1 text-sm ' + (val === String(c.n) ? 'bg-primary text-primary-foreground' : 'hover:bg-accent')}>
+          {c.n}章 {chT(c.n) || c.t} ({counts[c.n] || 0})
+        </button>
+      ))}
+    </div>
+  );
+
+  const lvlBadge = (it: any) => <Badge variant="outline" className="ml-1 text-[10px]">{it.level || 'N5'}</Badge>;
+  const editDelete = (load: () => void, kind: string, id: string) => (
+    <span className="flex justify-end gap-1">
+      <Button size="sm" variant="ghost" onClick={load}>✏️</Button>
+      <Button size="sm" variant="ghost" onClick={() => { remove(kind, id); toast('Removed (you can restore it below). 🗑', 'ok'); }}>🗑</Button>
+    </span>
+  );
+
+  const tabLabel = (k: string) => (k === 'vocab' ? t('Vocabulary') : k === 'grammar' ? t('Grammar') : k === 'kanji' ? t('Kanji') : k === 'chapters' ? t('Chapters') : k === 'tests' ? t('Tests') : t('Backup'));
 
   return (
     <div>
-      <PageHead icon="✏️" title="Add / Edit" subtitle={'Add your own vocabulary, grammar, kanji and practice tests — or edit any existing entry. Every form saves automatically as you type (the 💾 buttons still work), and each entry belongs to a JLPT level.'} />
-      <Tabs value={tab} onValueChange={(v) => { setTab(v); setQ(''); setEditing(null); }}>
+      <PageHead icon="⚙️" title="Add / Edit Content" subtitle={'Add your own vocabulary, grammar, kanji and practice tests — or edit any existing entry. Every form saves automatically as you type (the 💾 buttons still work), and each entry belongs to a JLPT level.'} />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="text-xs text-muted-foreground">{t('Show level')}</div>
+        <select value={showLvl} onChange={(e) => setShowLvl(e.target.value)} className="h-8 rounded-md border border-input bg-transparent px-2 text-sm">
+          <option value="all">{t('All levels')}</option>
+          {lvls.map((l) => <option key={l} value={l}>{l}</option>)}
+        </select>
+        <span className="text-xs text-muted-foreground">{t('New entries get the level chosen inside each form. Base book data is N5.')}</span>
+      </div>
+      <Tabs value={tab} onValueChange={(v) => { setTab(v); setRen(null); }}>
         <TabsList className="mb-4 flex-wrap">
-          {KIND_TABS.map((k) => (
-            <TabsTrigger key={k} value={k}>{t(KLABEL[k])}</TabsTrigger>
+          {['vocab', 'grammar', 'kanji', 'chapters', 'tests', 'backup'].map((k) => (
+            <TabsTrigger key={k} value={k}>{tabLabel(k)}</TabsTrigger>
           ))}
         </TabsList>
-        {KIND_TABS.slice(0, 5).map((k) => (
-          <TabsContent key={k} value={k}>{renderList(k)}</TabsContent>
-        ))}
+
+        {/* ---- Vocabulary ---- */}
+        <TabsContent value="vocab">
+          <div className="mb-4 rounded-xl border bg-card p-4 shadow-sm">
+            <h3 className="mb-3 font-semibold">➕ {t('Add vocabulary')}</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <F label={t('Japanese (word)')}><input value={vf.jp} onChange={(e) => setVf({ ...vf, jp: e.target.value })} placeholder="例：お弁当" className={cellCls} /></F>
+              <F label={t('Reading (kana)')}><input value={vf.rd} onChange={(e) => setVf({ ...vf, rd: e.target.value })} placeholder="おべんとう" className={cellCls} /></F>
+              <F label={t('Romaji')}><input value={vf.romaji} onChange={(e) => setVf({ ...vf, romaji: e.target.value })} placeholder="obentou" className={cellCls} /></F>
+              <F label={t('English meaning')}><input value={vf.en} onChange={(e) => setVf({ ...vf, en: e.target.value })} placeholder="boxed lunch" className={cellCls} /></F>
+              <F label={t('Burmese meaning')}><input value={vf.mm} onChange={(e) => setVf({ ...vf, mm: e.target.value })} onBlur={(e) => { const fx = fixField(e.target.value); setVf({ ...vf, mm: fx.value }); }} placeholder="ထမင်းထုပ်" className={cellCls} /></F>
+              <F label={t('Category')}><input value={vf.cat} onChange={(e) => setVf({ ...vf, cat: e.target.value })} placeholder={t('My words')} className={cellCls} /></F>
+              <F label={t('Chapter (book chapters)')}>
+                <select value={String(vf.ch || 0)} onChange={(e) => setVf({ ...vf, ch: Number(e.target.value) })} className={selectCls}>
+                  <option value="0">{t('— keep category —')}</option>
+                  {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
+                </select>
+              </F>
+              <F label={t('Level')}>
+                <select value={vf.lvl} onChange={(e) => setVf({ ...vf, lvl: e.target.value })} className={selectCls}>
+                  {lvls.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </F>
+              <F label={t('Synonyms (comma separated)')}><input value={vf.syn} onChange={(e) => setVf({ ...vf, syn: e.target.value })} placeholder="例：昼ごはん, lunch" className={cellCls} /></F>
+              <F label={t('Antonyms (comma separated)')}><input value={vf.ant} onChange={(e) => setVf({ ...vf, ant: e.target.value })} placeholder="例：夜, dinner" className={cellCls} /></F>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <Button onClick={() => manualSave('vocab')}>💾 {t('Save word')}</Button>
+              <Button variant="outline" onClick={() => setVf(blankV())}>✨ {t('New / clear')}</Button>
+            </div>
+          </div>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <Input value={vq} onChange={(e) => setVq(e.target.value)} placeholder={t('Search your words…')} className="h-9 min-w-56 flex-1" />
+            <span className="text-xs text-muted-foreground">{vocabAll.length} {t('words total')} + {kexAll.length} {t('kanji examples (read-only)')} ({t('showing')} {vFiltered.length})</span>
+          </div>
+          <button type="button" onClick={() => setShowCats(!showCats)} className="mb-2 rounded-md border px-2 py-1 text-xs">{showCats ? '▾' : '▸'} {t('Categories')}</button>
+          {showCats ? <div className="mb-3">{chips(vCh, setVCh, vCounts)}</div> : null}
+          <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+            <table className="w-full text-sm">
+              <thead><tr><Th>{t('JAPANESE')}</Th><Th>{t('READING')}</Th><Th>{t('MEANING')}</Th><Th>{t('CATEGORY')}</Th><Th /></tr></thead>
+              <tbody>
+                {vFiltered.map((it) => {
+                  const isKex = String(it.id || '').startsWith('kex_');
+                  return (
+                    <tr key={it.id} className="border-b last:border-b-0">
+                      <td className="px-3 py-2"><span className="font-medium">{it.jp}</span>{lvlBadge(it)}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{it.rd}</td>
+                      <td className="px-3 py-2">{it.mm || it.en}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{it.chapter ? it.chapter + '章 ' + chapterTitle('vocab', it.chapter, it.chapterTitle || '') : (it.cat || '')}</td>
+                      <td className="px-3 py-2 text-right">
+                        {isKex ? <span className="text-xs text-muted-foreground">{t('read-only')}</span> : editDelete(() => loadVocab(it), 'vocab', it.id)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        {/* ---- Grammar ---- */}
+        <TabsContent value="grammar">
+          <div className="mb-4 rounded-xl border bg-card p-4 shadow-sm">
+            <h3 className="mb-3 font-semibold">➕ {t('Add grammar point')}</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <F label={t('Chapter')}>
+                <select value={String(gf.ch || 1)} onChange={(e) => setGf({ ...gf, ch: Number(e.target.value) })} className={selectCls}>
+                  {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
+                </select>
+              </F>
+              <F label={t('Level')}>
+                <select value={gf.lvl} onChange={(e) => setGf({ ...gf, lvl: e.target.value })} className={selectCls}>
+                  {lvls.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </F>
+              <F label={t('Lesson no. (reference)')}><input value={gf.lesson} onChange={(e) => setGf({ ...gf, lesson: e.target.value })} placeholder="1" className={cellCls} /></F>
+              <F label={t('Title')}><input value={gf.title} onChange={(e) => setGf({ ...gf, title: e.target.value })} placeholder="〜てください" className={cellCls} /></F>
+              <F label={t('Pattern')}><input value={gf.pattern} onChange={(e) => setGf({ ...gf, pattern: e.target.value })} placeholder="〜てください" className={cellCls} /></F>
+              <F label={t('Meaning')}><input value={gf.meaning} onChange={(e) => setGf({ ...gf, meaning: e.target.value })} placeholder="please do…" className={cellCls} /></F>
+              <F label={t('Burmese meaning')}><input value={gf.mm} onChange={(e) => setGf({ ...gf, mm: e.target.value })} onBlur={(e) => { const fx = fixField(e.target.value); setGf({ ...gf, mm: fx.value }); }} placeholder="…လုပ်ပေးပါ" className={cellCls} /></F>
+            </div>
+            <div className="mt-3">
+              <F label={t('Explanation')}><Textarea value={gf.expl} onChange={(e) => setGf({ ...gf, expl: e.target.value })} className="min-h-20" /></F>
+            </div>
+            <h4 className="mb-2 mt-4 text-sm font-semibold">{t('Examples')}</h4>
+            <div className="space-y-2">
+              {gf.exs.map((e: any, i: number) => (
+                <div key={i} className="flex flex-wrap items-center gap-2">
+                  <input value={e.jp} onChange={(ev) => { const exs = [...gf.exs]; exs[i] = { ...e, jp: ev.target.value }; setGf({ ...gf, exs }); }} placeholder="Japanese 例：学校へ行きます。" className={cellCls + ' min-w-40 flex-1'} />
+                  <input value={e.rd} onChange={(ev) => { const exs = [...gf.exs]; exs[i] = { ...e, rd: ev.target.value }; setGf({ ...gf, exs }); }} placeholder={t('Reading')} className={cellCls + ' min-w-32 flex-1'} />
+                  <input value={e.en} onChange={(ev) => { const exs = [...gf.exs]; exs[i] = { ...e, en: ev.target.value }; setGf({ ...gf, exs }); }} placeholder={t('English')} className={cellCls + ' min-w-32 flex-1'} />
+                  <Button size="sm" variant="ghost" onClick={() => setGf({ ...gf, exs: gf.exs.filter((_: any, j: number) => j !== i) })}>✕</Button>
+                </div>
+              ))}
+            </div>
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => setGf({ ...gf, exs: gf.exs.concat([{ jp: '', rd: '', en: '' }]) })}>+ {t('Add example')}</Button>
+            <h4 className="mb-2 mt-4 text-sm font-semibold">{t('Exercises (first option = correct answer)')}</h4>
+            <div className="space-y-2">
+              {gf.exer.map((e: any, i: number) => (
+                <div key={i} className="flex flex-wrap items-center gap-2">
+                  <input value={e.q} onChange={(ev) => { const exer = [...gf.exer]; exer[i] = { ...e, q: ev.target.value }; setGf({ ...gf, exer }); }} placeholder="Question 例：学校___行きます。" className={cellCls + ' min-w-40 flex-1'} />
+                  <input value={e.c} onChange={(ev) => { const exer = [...gf.exer]; exer[i] = { ...e, c: ev.target.value }; setGf({ ...gf, exer }); }} placeholder="✓ Correct option" className={cellCls + ' min-w-28 flex-1'} />
+                  <input value={e.w1} onChange={(ev) => { const exer = [...gf.exer]; exer[i] = { ...e, w1: ev.target.value }; setGf({ ...gf, exer }); }} placeholder={t('Wrong option')} className={cellCls + ' min-w-28 flex-1'} />
+                  <input value={e.w2} onChange={(ev) => { const exer = [...gf.exer]; exer[i] = { ...e, w2: ev.target.value }; setGf({ ...gf, exer }); }} placeholder={t('Wrong option')} className={cellCls + ' min-w-28 flex-1'} />
+                  <Button size="sm" variant="ghost" onClick={() => setGf({ ...gf, exer: gf.exer.filter((_: any, j: number) => j !== i) })}>✕</Button>
+                </div>
+              ))}
+            </div>
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => setGf({ ...gf, exer: gf.exer.concat([{ q: '', c: '', w1: '', w2: '' }]) })}>+ {t('Add exercise')}</Button>
+            <div className="mt-4 flex gap-2">
+              <Button onClick={() => manualSave('grammar')}>💾 {t('Save grammar point')}</Button>
+              <Button variant="outline" onClick={() => setGf(blankG())}>✨ {t('New / clear')}</Button>
+            </div>
+          </div>
+          <div className="mb-3"><Input value={gq} onChange={(e) => setGq(e.target.value)} placeholder={t('Search grammar points…')} className="h-9" /></div>
+          <button type="button" onClick={() => setShowCats(!showCats)} className="mb-2 rounded-md border px-2 py-1 text-xs">{showCats ? '▾' : '▸'} {t('Categories')}</button>
+          {showCats ? <div className="mb-3">{chips(gCh, setGCh, gCounts)}</div> : null}
+          <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+            <table className="w-full text-sm">
+              <thead><tr><Th>{t('TITLE')}</Th><Th>{t('PATTERN')}</Th><Th>{t('MEANING')}</Th><Th>{t('CH.')}</Th><Th /></tr></thead>
+              <tbody>
+                {gFiltered.map((it) => (
+                  <tr key={it.id} className="border-b last:border-b-0">
+                    <td className="px-3 py-2"><span className="font-medium">{it.title}</span>{lvlBadge(it)}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{it.pattern}</td>
+                    <td className="px-3 py-2">{it.mm || it.meaning}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{it.chapter || ''}</td>
+                    <td className="px-3 py-2 text-right">{editDelete(() => loadGrammar(it), 'grammar', it.id)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        {/* ---- Kanji ---- */}
+        <TabsContent value="kanji">
+          <div className="mb-4 rounded-xl border bg-card p-4 shadow-sm">
+            <h3 className="mb-3 font-semibold">➕ {t('Add kanji')}</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <F label={t('Kanji')}><input value={kf.kanji} onChange={(e) => setKf({ ...kf, kanji: e.target.value })} placeholder="食" className={cellCls} /></F>
+              <F label={t('On readings (comma separated)')}><input value={kf.on} onChange={(e) => setKf({ ...kf, on: e.target.value })} placeholder="ショク" className={cellCls} /></F>
+              <F label={t('Kun reading')}><input value={kf.kun} onChange={(e) => setKf({ ...kf, kun: e.target.value })} placeholder="た(べる)" className={cellCls} /></F>
+              <F label={t('Burmese meaning')}><input value={kf.mm} onChange={(e) => setKf({ ...kf, mm: e.target.value })} onBlur={(e) => { const fx = fixField(e.target.value); setKf({ ...kf, mm: fx.value }); }} placeholder="စားသည်" className={cellCls} /></F>
+              <F label={t('English meaning')}><input value={kf.en} onChange={(e) => setKf({ ...kf, en: e.target.value })} placeholder="eat" className={cellCls} /></F>
+              <F label={t('Chapter')}>
+                <select value={String(kf.ch || 1)} onChange={(e) => setKf({ ...kf, ch: Number(e.target.value) })} className={selectCls}>
+                  {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
+                </select>
+              </F>
+              <F label={t('Level')}>
+                <select value={kf.lvl} onChange={(e) => setKf({ ...kf, lvl: e.target.value })} className={selectCls}>
+                  {lvls.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </F>
+            </div>
+            <h4 className="mb-2 mt-4 text-sm font-semibold">{t('Example words')}</h4>
+            <div className="space-y-2">
+              {kf.exs.map((e: any, i: number) => (
+                <div key={i} className="flex flex-wrap items-center gap-2">
+                  <input value={e.w} onChange={(ev) => { const exs = [...kf.exs]; exs[i] = { ...e, w: ev.target.value }; setKf({ ...kf, exs }); }} placeholder="Word 例：食べます" className={cellCls + ' min-w-40 flex-1'} />
+                  <input value={e.r} onChange={(ev) => { const exs = [...kf.exs]; exs[i] = { ...e, r: ev.target.value }; setKf({ ...kf, exs }); }} placeholder={t('Reading')} className={cellCls + ' min-w-32 flex-1'} />
+                  <input value={e.m} onChange={(ev) => { const exs = [...kf.exs]; exs[i] = { ...e, m: ev.target.value }; setKf({ ...kf, exs }); }} placeholder={t('Burmese/English meaning')} className={cellCls + ' min-w-32 flex-1'} />
+                  <Button size="sm" variant="ghost" onClick={() => setKf({ ...kf, exs: kf.exs.filter((_: any, j: number) => j !== i) })}>✕</Button>
+                </div>
+              ))}
+            </div>
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => setKf({ ...kf, exs: kf.exs.concat([{ w: '', r: '', m: '' }]) })}>+ {t('Add example word')}</Button>
+            <div className="mt-4 flex gap-2">
+              <Button onClick={() => manualSave('kanji')}>💾 {t('Save kanji')}</Button>
+              <Button variant="outline" onClick={() => setKf(blankK())}>✨ {t('New / clear')}</Button>
+            </div>
+          </div>
+          <div className="mb-3"><Input value={kq} onChange={(e) => setKq(e.target.value)} placeholder={t('Search kanji, readings or meanings…')} className="h-9" /></div>
+          <button type="button" onClick={() => setShowCats(!showCats)} className="mb-2 rounded-md border px-2 py-1 text-xs">{showCats ? '▾' : '▸'} {t('Categories')}</button>
+          {showCats ? <div className="mb-3">{chips(kCh, setKCh, kCounts)}</div> : null}
+          <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+            <table className="w-full text-sm">
+              <thead><tr><Th>{t('KANJI')}</Th><Th>{t('ON')}</Th><Th>{t('KUN')}</Th><Th>{t('MEANING')}</Th><Th>{t('CH.')}</Th><Th /></tr></thead>
+              <tbody>
+                {kFiltered.map((it) => (
+                  <tr key={it.id} className="border-b last:border-b-0">
+                    <td className="px-3 py-2"><span className="font-medium">{it.kanji}</span>{lvlBadge(it)}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{Array.isArray(it.on) ? it.on.join('・') : it.on}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{it.kun}</td>
+                    <td className="px-3 py-2">{it.en || it.meaning}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{it.chapter || ''}</td>
+                    <td className="px-3 py-2 text-right">{editDelete(() => loadKanji(it), 'kanji', it.id)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        {/* ---- Chapters ---- */}
         <TabsContent value="chapters">
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t('Rename a chapter — the new title shows everywhere (kanji, vocab, grammar).')}</p>
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <h3 className="mb-3 font-semibold">📚 {t('Chapters')}</h3>
+              <p className="mb-3 text-sm text-muted-foreground">{t('Rename a chapter — the new title shows everywhere (kanji, vocab, grammar).')}</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <F label={t('Chapter no.')}>
+                  <select value={nchN} onChange={(e) => setNchN(e.target.value)} className={selectCls}>
+                    <option value="">—</option>
+                    {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章</option>)}
+                  </select>
+                </F>
+                <F label={t('Title')}><input value={nchT} onChange={(e) => setNchT(e.target.value)} onBlur={(e) => { const fx = fixField(e.target.value); setNchT(fx.value); }} placeholder="例：Numbers / နံပါတ်များ" className={cellCls} /></F>
+                <div className="flex items-end"><Button onClick={saveChapter}>💾 {t('Add / update chapter')}</Button></div>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
-              {chs.map((c) => {
-                const cur = chapterTitle(tab === 'grammar' ? 'grammar' : 'kanji', c.n, c.t);
-                return (
-                  <button key={c.n} type="button" className="rounded-lg border px-3 py-2 text-sm hover:bg-accent" onClick={() => setRen({ n: c.n, t: cur })}>
-                    {c.n}章 {cur || c.t} ✏️
-                  </button>
-                );
-              })}
+              {chBook.map((c) => (
+                <button key={c.n} type="button" className="rounded-lg border px-3 py-2 text-sm hover:bg-accent" onClick={() => setRen({ n: c.n, t: chT(c.n) || c.t || '' })}>
+                  {c.n}章 {chT(c.n) || c.t} ✏️
+                </button>
+              ))}
             </div>
             {ren ? (
-              <div className="flex items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
                 <Label>{t('Chapter')} {ren.n}</Label>
                 <Input value={ren.t} onChange={(e) => setRen({ ...ren, t: e.target.value })} onBlur={(e) => { const fx = fixField(e.target.value); setRen({ ...ren, t: fx.value }); }} className="flex-1" />
-                <Button size="sm" onClick={() => {
-                  const arr = (pref('uchapters') || []).filter((x: any) => Number(x.n) !== ren.n);
-                  arr.push({ n: ren.n, t: ren.t.trim(), lvl: 'N5' });
-                  pref('uchapters', arr);
-                  toast('Chapter renamed ✅', 'ok'); setRen(null);
-                }}>{t('Save')}</Button>
+                <Button size="sm" onClick={saveRen}>{t('Save')}</Button>
                 <Button size="sm" variant="ghost" onClick={() => setRen(null)}>{t('Close')}</Button>
               </div>
             ) : null}
             {uchapters.length ? (
               <div className="flex flex-wrap gap-2">
                 {uchapters.map((c) => (
-                  <Badge key={c.n} variant="secondary">{c.n}章 {c.t}</Badge>
+                  <span key={c.n} className="flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-sm">
+                    {c.n}章 {c.t}
+                    <button type="button" className="text-xs hover:text-primary" onClick={() => setRen({ n: c.n, t: c.t })}>✏️ {t('Rename')}</button>
+                    <button type="button" className="text-xs hover:text-destructive" onClick={() => delChapter(c.n)}>🗑 {t('Delete')}</button>
+                  </span>
                 ))}
               </div>
             ) : null}
           </div>
         </TabsContent>
-        <TabsContent value="backup">
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">{t('Download everything you added, edited and deleted as one JSON file — or restore it on any device. Restoring merges, so nothing is lost.')}</p>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={backupExport}>📥 {t('Download backup')}</Button>
-              <input type="file" accept="application/json" className="hidden" id="b-in" onChange={(e) => backupImport(e.target.files && e.target.files[0])} />
-              <Button variant="outline" onClick={() => (document.getElementById('b-in') as HTMLInputElement)?.click()}>📤 {t('Restore backup')}</Button>
-            </div>
-          </div>
-        </TabsContent>
-        <TabsContent value="stats">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {['added', 'edited', 'deleted'].map((f, i) => (
-              <div key={f} className="rounded-xl border bg-card p-4 shadow-sm">
-                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t(f)}</h3>
-                {KIND_TABS.slice(0, 5).map((k, j) => (
-                  <div key={k} className="flex justify-between text-sm">
-                    <span>{k}</span><span className="font-medium">{(stats as any)[f][j]}</span>
+
+        {/* ---- Tests ---- */}
+        <TabsContent value="tests">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <h3 className="mb-3 font-semibold">➕ {t('Build your own quiz')}</h3>
+              <div className="space-y-3">
+                <F label={t('Quiz title')}><input value={qzT} onChange={(e) => setQzT(e.target.value)} placeholder={t('My N5 word test')} className={cellCls} /></F>
+                <F label={t('Chapter')}>
+                  <select value={String(qzCh)} onChange={(e) => setQzCh(Number(e.target.value))} className={selectCls}>
+                    <option value="0">{t('— no chapter —')}</option>
+                    {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
+                  </select>
+                </F>
+                {qz.map((r, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2">
+                    <input value={r.q} onChange={(e) => { const a = [...qz]; a[i] = { ...r, q: e.target.value }; setQz(a); }} placeholder="Question 例：学校___行きます。" className={cellCls + ' min-w-40 flex-1'} />
+                    <input value={r.c} onChange={(e) => { const a = [...qz]; a[i] = { ...r, c: e.target.value }; setQz(a); }} placeholder="✓ Correct option" className={cellCls + ' min-w-28 flex-1'} />
+                    <input value={r.w1} onChange={(e) => { const a = [...qz]; a[i] = { ...r, w1: e.target.value }; setQz(a); }} placeholder={t('Wrong option')} className={cellCls + ' min-w-28 flex-1'} />
+                    <input value={r.w2} onChange={(e) => { const a = [...qz]; a[i] = { ...r, w2: e.target.value }; setQz(a); }} placeholder={t('Wrong option')} className={cellCls + ' min-w-28 flex-1'} />
+                    <Button size="sm" variant="ghost" onClick={() => setQz(qz.filter((_: any, j: number) => j !== i))}>✕</Button>
                   </div>
                 ))}
+                <Button size="sm" variant="outline" onClick={() => setQz(qz.concat([{ q: '', c: '', w1: '', w2: '' }]))}>+ {t('Add question')}</Button>
+                <div><Button onClick={saveQuiz}>💾 {t('Save quiz')}</Button></div>
               </div>
-            ))}
+            </div>
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <h3 className="mb-3 font-semibold">➕ {t('Build a flashcard deck')}</h3>
+              <div className="space-y-3">
+                <F label={t('Deck title')}><input value={dkT} onChange={(e) => setDkT(e.target.value)} placeholder={t('My hard words')} className={cellCls} /></F>
+                <F label={t('Chapter')}>
+                  <select value={String(dkCh)} onChange={(e) => setDkCh(Number(e.target.value))} className={selectCls}>
+                    <option value="0">{t('— no chapter —')}</option>
+                    {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
+                  </select>
+                </F>
+                {dk.map((r, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2">
+                    <input value={r.front} onChange={(e) => { const a = [...dk]; a[i] = { ...r, front: e.target.value }; setDk(a); }} placeholder={t('Front')} className={cellCls + ' min-w-40 flex-1'} />
+                    <input value={r.back} onChange={(e) => { const a = [...dk]; a[i] = { ...r, back: e.target.value }; setDk(a); }} placeholder={t('Back')} className={cellCls + ' min-w-40 flex-1'} />
+                    <Button size="sm" variant="ghost" onClick={() => setDk(dk.filter((_: any, j: number) => j !== i))}>✕</Button>
+                  </div>
+                ))}
+                <Button size="sm" variant="outline" onClick={() => setDk(dk.concat([{ front: '', back: '' }]))}>+ {t('Add card')}</Button>
+                <div><Button onClick={saveDeck}>💾 {t('Save deck')}</Button></div>
+              </div>
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
-      {editing ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setEditing(null)}>
-          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border bg-background p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-4 text-lg font-semibold">{editing.id && String(editing.id).startsWith('u_') === false ? t('Edit') : t('Add new')} — {editKind}</h3>
+          <h3 className="mb-3 mt-6 font-semibold">{t('Your tests')}</h3>
+          {!testsList.length ? (
+            <p className="text-sm text-muted-foreground">{t('No tests yet — build them above.')}</p>
+          ) : (
             <div className="space-y-3">
-              {(FIELDS[editKind] || []).map(([k, label, multi]) => (
-                <div key={k} className="space-y-1">
-                  <Label htmlFor={'f-' + k}>{label}</Label>
-                  {multi ? (
-                    <Textarea id={'f-' + k} value={editing[k] || ''} onChange={(e) => setEditing({ ...editing, [k]: e.target.value })} onBlur={(e) => { const fx = fixField(e.target.value); setEditing({ ...editing, [k]: fx.value }); }} />
-                  ) : (
-                    <Input id={'f-' + k} value={editing[k] || ''} onChange={(e) => setEditing({ ...editing, [k]: e.target.value })} onBlur={(e) => { const fx = fixField(e.target.value); setEditing({ ...editing, [k]: fx.value }); }} />
-                  )}
+              {testsList.map((ut) => (
+                <div key={ut.id} className="flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm">
+                  <div>
+                    <div className="font-medium">{ut.title}</div>
+                    <div className="text-xs text-muted-foreground">{ut.kind === 'deck' ? '🗂 deck' : '❓ quiz'} · {ut.items ? ut.items.length : 0} items{ut.level ? ' · ' + ut.level : ''}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link href="/tests" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">▶ {t('Take')}</Link>
+                    <Button size="sm" variant="ghost" onClick={() => loadTest(ut)}>✏️</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { remove('tests', ut.id); toast('Removed (you can restore it below). 🗑', 'ok'); }}>🗑</Button>
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex gap-2">
-              <Button onClick={commit}>{t('Save')}</Button>
-              <Button variant="ghost" onClick={() => setEditing(null)}>{t('Close')}</Button>
+          )}
+        </TabsContent>
+
+        {/* ---- Backup ---- */}
+        <TabsContent value="backup">
+          <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
+            <h3 className="font-semibold">💾 {t('Backup your additions')}</h3>
+            <p className="text-sm text-muted-foreground">{t('Download everything you added, edited and deleted as one JSON file — or restore it on any device. Restoring merges, so nothing is lost.')}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={backupExport}>⬇ {t('Export my data (JSON)')}</Button>
+              <input type="file" accept="application/json" className="hidden" id="b-in" onChange={(e) => backupImport(e.target.files && e.target.files[0])} />
+              <Button variant="outline" onClick={() => (document.getElementById('b-in') as HTMLInputElement)?.click()}>⬆ {t('Import backup')}</Button>
+              <Button variant="outline" onClick={restoreAllDeleted}>♻️ {t('Restore all deleted base items')}</Button>
+              <Button variant="destructive" onClick={resetAll}>🗑 {t('Reset ALL my changes')}</Button>
             </div>
           </div>
-        </div>
-      ) : null}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
