@@ -8,6 +8,7 @@
 import * as React from 'react';
 import { filesList, fileGet } from '@/lib/files';
 import { PageHead } from '@/components/page-head';
+import { PdfReader } from '@/components/pdf-reader';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useT, useToast } from '@/components/providers';
@@ -22,18 +23,18 @@ export default function TextbookPage() {
   const toast = useToast();
   const [mounted, setMounted] = React.useState(false);
   const [books, setBooks] = React.useState<any[]>([]);
-  const [reader, setReader] = React.useState<{ name: string; url: string } | null>(null);
+  const [reader, setReader] = React.useState<{ name: string; url: string; bookKey: string; cat: string } | null>(null);
 
   React.useEffect(() => {
     setMounted(true);
     filesList().then((all) => setBooks(all.filter((m) => (m.cat || '') === 'pdf' || (m.cat || '') === 'doc'))).catch(() => {});
   }, []);
 
-  const openBundled = (b: any) => setReader({ name: b.name, url: b.path });
+  const openBundled = (b: any) => setReader({ name: b.name, url: b.path, bookKey: b.path, cat: 'pdf' });
   const openMine = async (m: any) => {
     try {
       const rec = await fileGet(m.id);
-      if (rec && rec.blob) setReader({ name: m.name || 'Book', url: URL.createObjectURL(rec.blob) });
+      if (rec && rec.blob) setReader({ name: m.name || 'Book', url: URL.createObjectURL(rec.blob), bookKey: m.id, cat: m.cat || rec.cat || 'pdf' });
       else toast('Book not found on this device or the server.', 'err');
     } catch (e) {
       toast('Book not found on this device or the server.', 'err');
@@ -75,9 +76,13 @@ export default function TextbookPage() {
       )}
       {reader ? (
         <Dialog open onOpenChange={(o) => { if (!o) { if (reader.url.startsWith('blob:')) URL.revokeObjectURL(reader.url); setReader(null); } }}>
-          <DialogContent className="max-w-4xl">
-            <DialogTitle className="pr-8">{reader.name}</DialogTitle>
-            <iframe src={reader.url} title={reader.name} className="h-[75vh] w-full rounded-lg border" />
+          <DialogContent className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[96vw] flex-col overflow-hidden p-4">
+            <DialogTitle className="truncate pr-8">{reader.name}</DialogTitle>
+            {reader.cat === 'pdf' ? (
+              <PdfReader url={reader.url} bookKey={reader.bookKey} name={reader.name} />
+            ) : (
+              <iframe src={reader.url} title={reader.name} className="min-h-0 w-full flex-1 rounded-lg border" />
+            )}
           </DialogContent>
         </Dialog>
       ) : null}
