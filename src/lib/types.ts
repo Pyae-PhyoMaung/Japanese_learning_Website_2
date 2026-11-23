@@ -108,7 +108,7 @@ export interface UserRecord {
   grammar?: KindStore;
   sentences?: KindStore;
   tests?: KindStore;
-  files?: { added: FileMeta[] };
+  files?: { added: FileMeta[]; trashed?: FileMeta[] };
   prefs?: Record<string, any>;
   _sync?: { at: number; dev?: string };
 }

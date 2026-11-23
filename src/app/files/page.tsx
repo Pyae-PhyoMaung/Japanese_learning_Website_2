@@ -2,10 +2,13 @@
 
 /* Files — port of files.html: upload files (category auto-detected by
    name/MIME, like the original), list them per category, preview images /
-   PDFs / video / audio in a dialog, and delete (removes metadata, the
-   IndexedDB copy, and the cloud object). */
+   PDFs / video / audio in a dialog, and delete — deleting moves the file to
+   a Trash (metadata + blob kept, restorable) so nothing is lost by mistake;
+   "delete forever" from the Trash actually removes metadata, the IndexedDB
+   copy and the cloud object. */
 import * as React from 'react';
-import { filesList, filePut, fileGet, fileDel, fileCat, type FileRec } from '@/lib/files';
+import { filesList, filesTrashed, filePut, fileGet, fileTrash, fileRestore, fileDel, fileCat, type FileRec } from '@/lib/files';
+import { FileThumb } from '@/components/file-thumb';
 import type { FileMeta } from '@/lib/types';
 import { PageHead } from '@/components/page-head';
 import { PdfReader } from '@/components/pdf-reader';
@@ -18,57 +21,6 @@ import { fmtSize, uid } from '@/lib/utils';
 const CATS = ['image', 'pdf', 'video', 'audio', 'doc', 'other'];
 const CAT_ICON: Record<string, string> = { image: '🖼️', pdf: '📕', video: '🎬', audio: '🎵', doc: '📄', other: '📦' };
 
-/* Thumbnail for image files — the blob is only fetched once the card
-   scrolls into view, so a library of 100+ images doesn't all load at once. */
-function FileThumb({ m }: { m: FileMeta }) {
-  const { t } = useT();
-  const [url, setUrl] = React.useState<string | null>(null);
-  const [failed, setFailed] = React.useState(false);
-  const [vis, setVis] = React.useState(false);
-  const boxRef = React.useRef<HTMLDivElement | null>(null);
-
-  React.useEffect(() => {
-    const el = boxRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') { setVis(true); return; }
-    const io = new IntersectionObserver(
-      (es) => { if (es.some((e) => e.isIntersecting)) { setVis(true); io.disconnect(); } },
-      { rootMargin: '300px' }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  React.useEffect(() => {
-    if (!vis || m.cat !== 'image' || url || failed) return;
-    let dead = false;
-    fileGet(m.id)
-      .then((rec) => { if (!dead && rec.blob) setUrl(URL.createObjectURL(rec.blob)); })
-      .catch(() => { if (!dead) setFailed(true); });
-    return () => { dead = true; };
-  }, [vis, m.id, m.cat, url, failed]);
-
-  React.useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
-
-  if (m.cat !== 'image') {
-    return (
-      <div className="flex h-28 items-center justify-center rounded-lg border bg-muted/30 text-4xl">
-        <span>{CAT_ICON[m.cat || 'other'] || '📦'}</span>
-      </div>
-    );
-  }
-  return (
-    <div ref={boxRef} className="flex h-28 items-center justify-center overflow-hidden rounded-lg border bg-muted/30">
-      {url ? (
-        <img src={url} alt={m.name} className="max-h-full max-w-full object-contain" loading="lazy" />
-      ) : failed ? (
-        <span className="text-4xl">🖼️</span>
-      ) : (
-        <span className="text-xs text-muted-foreground">{t('Loading…')}</span>
-      )}
-    </div>
-  );
-}
-
 export default function FilesPage() {
   const { t } = useT();
   const toast = useToast();
@@ -77,8 +29,14 @@ export default function FilesPage() {
   const [cat, setCat] = React.useState('all');
   const [preview, setPreview] = React.useState<{ url: string; rec: FileRec } | null>(null);
   const [confirmDel, setConfirmDel] = React.useState<FileMeta | null>(null);
+  const [trash, setTrash] = React.useState<FileMeta[]>([]);
+  const [trashView, setTrashView] = React.useState(false);
+  const [confirmPurge, setConfirmPurge] = React.useState<FileMeta | null>(null);
 
-  const refresh = React.useCallback(() => { filesList().then(setFiles).catch(() => setFiles([])); }, []);
+  const refresh = React.useCallback(() => {
+    filesList().then(setFiles).catch(() => setFiles([]));
+    filesTrashed().then(setTrash).catch(() => setTrash([]));
+  }, []);
   React.useEffect(() => { setMounted(true); refresh(); }, [refresh]);
 
   const upload = (f: File | null) => {
@@ -99,7 +57,13 @@ export default function FilesPage() {
   };
 
   const del = (m: FileMeta) => {
-    fileDel(m.id).then(() => { refresh(); toast('File deleted 🗑', 'ok'); });
+    fileTrash(m.id).then(() => { refresh(); toast('Moved to Trash ♻️', 'ok'); });
+  };
+  const restore = (m: FileMeta) => {
+    fileRestore(m.id).then(() => { refresh(); toast('File restored ♻️', 'ok'); });
+  };
+  const purge = (m: FileMeta) => {
+    fileDel(m.id).then(() => { refresh(); toast('Deleted forever 🗑', 'ok'); });
   };
 
   const list = cat === 'all' ? files : files.filter((m) => (m.cat || 'other') === cat);
@@ -110,6 +74,7 @@ export default function FilesPage() {
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <input type="file" className="hidden" id="f-up" onChange={(e) => upload(e.target.files && e.target.files[0])} />
         <Button onClick={() => (document.getElementById('f-up') as HTMLInputElement)?.click()}>⬆️ {t('Upload file')}</Button>
+        <Button variant="outline" onClick={() => setTrashView(!trashView)}>🗑 {t('Trash')} ({trash.length})</Button>
         <span className="text-xs text-muted-foreground">PDF · image · video · audio · doc — up to 40 MB</span>
       </div>
       <div className="mb-4 flex flex-wrap gap-2">
@@ -125,7 +90,7 @@ export default function FilesPage() {
           );
         })}
       </div>
-      {!list.length ? (
+      {!trashView ? !list.length ? (
         <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t('No files yet — upload your first one!')}</p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -138,12 +103,32 @@ export default function FilesPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={() => open(m)}>{t('Open')}</Button>
-                <Button size="sm" variant="ghost" title={t('Delete')} onClick={() => setConfirmDel(m)}>🗑</Button>
+                <Button size="sm" variant="ghost" className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive" title={t('Move to Trash?')} aria-label={t('Delete')} onClick={() => setConfirmDel(m)}>🗑</Button>
               </div>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
+      {trashView ? (
+        trash.length ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">{t('Trashed files are kept (also on the server) until you delete them forever.')}</p>
+            {trash.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
+                <span className="text-2xl">🗑</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium" title={m.name}>{m.name}</div>
+                  <div className="text-xs text-muted-foreground">{fmtSize(m.size)}{m.added ? ' · ' + m.added : ''}</div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => restore(m)}>♻️ {t('Restore')}</Button>
+                <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" title={t('Delete forever')} aria-label={t('Delete forever')} onClick={() => setConfirmPurge(m)}>🗑</Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t('Trash is empty.')}</p>
+        )
+      ) : null}
       {preview ? (
         <Dialog open onOpenChange={(o) => { if (!o) { URL.revokeObjectURL(preview.url); setPreview(null); } }}>
           <DialogContent className={preview.rec.cat === 'pdf' ? 'flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[96vw] flex-col overflow-hidden p-4' : 'max-w-3xl'}>
@@ -173,13 +158,27 @@ export default function FilesPage() {
       {confirmDel ? (
         <Dialog open onOpenChange={(o) => { if (!o) setConfirmDel(null); }}>
           <DialogContent className="max-w-md">
-            <DialogTitle>{t('Delete this file?')}</DialogTitle>
+            <DialogTitle>{t('Move to Trash?')}</DialogTitle>
             <p className="text-sm text-muted-foreground">
-              {confirmDel.name} — {t("This can't be undone.")}
+              {confirmDel.name} — {t('You can restore it from Trash.')}
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setConfirmDel(null)}>{t('Cancel')}</Button>
-              <Button variant="destructive" onClick={() => { const m = confirmDel; setConfirmDel(null); del(m); }}>{t('Delete')}</Button>
+              <Button variant="destructive" onClick={() => { const m = confirmDel; setConfirmDel(null); del(m); }}>{t('Move to Trash')}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+      {confirmPurge ? (
+        <Dialog open onOpenChange={(o) => { if (!o) setConfirmPurge(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogTitle>{t('Delete forever?')}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {confirmPurge.name} — {t("This can't be undone.")}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmPurge(null)}>{t('Cancel')}</Button>
+              <Button variant="destructive" onClick={() => { const m = confirmPurge; setConfirmPurge(null); purge(m); }}>{t('Delete forever')}</Button>
             </div>
           </DialogContent>
         </Dialog>

@@ -38,7 +38,7 @@ const Th = ({ children }: any) => (
 );
 
 export default function EditPage() {
-  useJL();
+  const storeVer = useJL(); /* store version — dep for the memoized lists below, so they refresh after saves/deletes but NOT on every keystroke */
   const { t } = useT();
   const toast = useToast();
   const [mounted, setMounted] = React.useState(false);
@@ -81,15 +81,25 @@ export default function EditPage() {
 
   const lvls = ['N5', 'N4', 'N3', 'N2', 'N1'];
   const lvlOf = (arr: any[]) => (showLvl === 'all' ? arr : arr.filter((x) => (x.level || 'N5') === showLvl));
-  const vocabAll: any[] = mounted ? lvlOf(vocabList()) : [];
-  const kexAll: any[] = mounted
-    ? (showLvl === 'all' ? lvls.flatMap((l) => kexVocab(l)) : kexVocab(showLvl))
-    : [];
-  const kanjiAll: any[] = mounted ? lvlOf(kanjiList()) : [];
-  const gramAll: any[] = mounted ? lvlOf(grammarList()) : [];
-  const testsList: UserTest[] = mounted ? lvlOf(merged<UserTest>('tests')) : [];
-  const chBook: any[] = mounted ? chapters('kanji') : [];
-  const uchapters: Array<{ n: number; t: string; lvl?: string }> = (mounted ? pref('uchapters') : []) || [];
+  /* these data lists used to be rebuilt on EVERY render — and every keystroke
+     re-renders the page — which is what made typing here feel laggy. They are
+     memoized now: they only recompute when the store actually changes
+     (storeVer), when the level filter changes, or on mount. */
+  /* eslint-disable react-hooks/exhaustive-deps */
+  const vocabAll: any[] = React.useMemo(() => (mounted ? lvlOf(vocabList()) : []), [mounted, showLvl, storeVer]);
+  const kexAll: any[] = React.useMemo(
+    () => (mounted ? (showLvl === 'all' ? lvls.flatMap((l) => kexVocab(l)) : kexVocab(showLvl)) : []),
+    [mounted, showLvl, storeVer]
+  );
+  const kanjiAll: any[] = React.useMemo(() => (mounted ? lvlOf(kanjiList()) : []), [mounted, showLvl, storeVer]);
+  const gramAll: any[] = React.useMemo(() => (mounted ? lvlOf(grammarList()) : []), [mounted, showLvl, storeVer]);
+  const testsList: UserTest[] = React.useMemo(() => (mounted ? lvlOf(merged<UserTest>('tests')) : []), [mounted, showLvl, storeVer]);
+  const chBook: any[] = React.useMemo(() => (mounted ? chapters('kanji') : []), [mounted, storeVer]);
+  const uchapters: Array<{ n: number; t: string; lvl?: string }> = React.useMemo(
+    () => (mounted ? pref('uchapters') : []) || [],
+    [mounted, storeVer]
+  );
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const chT = (n: number) => {
     const c = chBook.find((x) => Number(x.n) === Number(n));
@@ -138,9 +148,20 @@ export default function EditPage() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       ([['vocab', vf], ['kanji', kf], ['grammar', gf]] as Array<[string, any]>).forEach(([kind, f]) => {
-        if (!f.id) return;
         const item = kind === 'vocab' ? parseVocab(f) : kind === 'kanji' ? parseKanji(f) : parseGrammar(f);
         if (!item.jp && !item.kanji && !item.title) return;
+        /* NEW entries too: parseX assigns an id the first time, and we write
+           it back into the form state so every later keystroke keeps editing
+           that same record. Before, brand-new words were only stored when the
+           💾 button was pressed — now typing alone is enough (legacy
+           behaviour). */
+        if (!f.id) {
+          save(kind, item);
+          if (kind === 'vocab') setVf((g: any) => ({ ...g, id: item.id }));
+          else if (kind === 'kanji') setKf((g: any) => ({ ...g, id: item.id }));
+          else setGf((g: any) => ({ ...g, id: item.id }));
+          return;
+        }
         save(kind, item);
       });
     }, 700);
@@ -208,7 +229,7 @@ export default function EditPage() {
     const tt = nchT.trim();
     if (!n || !tt) { toast('Fill the main field first.', 'warn'); return; }
     const arr = uchapters.filter((x) => Number(x.n) !== n);
-    arr.push({ n, t: tt });
+    arr.push({ n, t: tt, lvl: showLvl === 'all' ? undefined : showLvl });
     pref('uchapters', arr);
     toast('Chapter saved.', 'ok');
     setNchN(''); setNchT('');
@@ -229,7 +250,7 @@ export default function EditPage() {
   const saveRen = () => {
     if (!ren) return;
     const arr = uchapters.filter((x) => Number(x.n) !== ren.n);
-    arr.push({ n: ren.n, t: ren.t.trim() });
+    arr.push({ n: ren.n, t: ren.t.trim(), lvl: showLvl === 'all' ? undefined : showLvl });
     pref('uchapters', arr);
     toast('Chapter saved.', 'ok');
     setRen(null);
@@ -267,33 +288,53 @@ export default function EditPage() {
     toast('All changes reset 🗑', 'ok');
   };
 
-  /* backup stats line — like the original site: "kanji: 2 added, 1 edited, 0 deleted · …" */
-  const backupStats = mounted
-    ? (['kanji', 'vocab', 'grammar', 'tests'] as const)
-        .map((k) => {
-          const u: any = getUser();
-          const s = (u && u[k]) || {};
-          return k + ': ' + (s.added || []).length + ' added, ' + Object.keys(s.edited || {}).length + ' edited, ' + Object.keys(s.deleted || {}).length + ' deleted';
-        })
-        .join(' · ')
-    : '';
+  /* backup stats line — like the original site: "kanji: 2 added, 1 edited, 0 deleted · …".
+     Computed on demand (only when the Backup tab is open) instead of on every render. */
+  const backupStats = () => {
+    if (!mounted) return '';
+    return (['kanji', 'vocab', 'grammar', 'tests'] as const)
+      .map((k) => {
+        const u: any = getUser();
+        const s = (u && u[k]) || {};
+        return k + ': ' + (s.added || []).length + ' added, ' + Object.keys(s.edited || {}).length + ' edited, ' + Object.keys(s.deleted || {}).length + ' deleted';
+      })
+      .join(' · ');
+  };
 
   /* ---------- filters, chips, tables ---------- */
   const hit = (it: any, q: string) => !q || [it.jp, it.rd, it.romaji, it.mm, it.en, it.kanji, it.meaning, it.title, it.pattern].some((v) => v && String(v).toLowerCase().includes(q.toLowerCase()));
-  const vRows = vocabAll.concat(kexAll);
-  const vCounts: Record<number, number> = {};
-  vRows.forEach((it) => { const n = Number(it.chapter) || 0; if (n) vCounts[n] = (vCounts[n] || 0) + 1; });
-  const vFiltered = vRows.filter((it) => hit(it, vq) && (vCh === 'all' || String(it.chapter || 0) === vCh));
-  const kCounts: Record<number, number> = {};
-  kanjiAll.forEach((it) => { const n = Number(it.chapter) || 0; if (n) kCounts[n] = (kCounts[n] || 0) + 1; });
-  const kFiltered = kanjiAll.filter((it) => hit(it, kq) && (kCh === 'all' || String(it.chapter || 0) === kCh));
-  const gCounts: Record<number, number> = {};
-  gramAll.forEach((it) => { const n = Number(it.chapter) || 0; if (n) gCounts[n] = (gCounts[n] || 0) + 1; });
-  const gFiltered = gramAll.filter((it) => hit(it, gq) && (gCh === 'all' || String(it.chapter || 0) === gCh));
-  const sCounts: Record<number, number> = {};
-  (mounted ? lvlOf(sentenceList()) : []).forEach((it: any) => { const n = Number(it.chapter) || 0; if (n) sCounts[n] = (sCounts[n] || 0) + 1; });
-  const tCounts: Record<number, number> = {};
-  testsList.forEach((it) => { const n = Number(it.chapter) || 0; if (n) tCounts[n] = (tCounts[n] || 0) + 1; });
+  /* counts and filtered lists are memoized too (same reason as the data lists above) */
+  /* eslint-disable react-hooks/exhaustive-deps */
+  const vRows: any[] = React.useMemo(() => vocabAll.concat(kexAll), [vocabAll, kexAll]);
+  const vCounts = React.useMemo(() => {
+    const c: Record<number, number> = {};
+    vRows.forEach((it) => { const n = Number(it.chapter) || 0; if (n) c[n] = (c[n] || 0) + 1; });
+    return c;
+  }, [vRows]);
+  const vFiltered = React.useMemo(() => vRows.filter((it) => hit(it, vq) && (vCh === 'all' || String(it.chapter || 0) === vCh)), [vRows, vq, vCh]);
+  const kCounts = React.useMemo(() => {
+    const c: Record<number, number> = {};
+    kanjiAll.forEach((it) => { const n = Number(it.chapter) || 0; if (n) c[n] = (c[n] || 0) + 1; });
+    return c;
+  }, [kanjiAll]);
+  const kFiltered = React.useMemo(() => kanjiAll.filter((it) => hit(it, kq) && (kCh === 'all' || String(it.chapter || 0) === kCh)), [kanjiAll, kq, kCh]);
+  const gCounts = React.useMemo(() => {
+    const c: Record<number, number> = {};
+    gramAll.forEach((it) => { const n = Number(it.chapter) || 0; if (n) c[n] = (c[n] || 0) + 1; });
+    return c;
+  }, [gramAll]);
+  const gFiltered = React.useMemo(() => gramAll.filter((it) => hit(it, gq) && (gCh === 'all' || String(it.chapter || 0) === gCh)), [gramAll, gq, gCh]);
+  const sCounts = React.useMemo(() => {
+    const c: Record<number, number> = {};
+    (mounted ? lvlOf(sentenceList()) : []).forEach((it: any) => { const n = Number(it.chapter) || 0; if (n) c[n] = (c[n] || 0) + 1; });
+    return c;
+  }, [mounted, showLvl, storeVer]);
+  const tCounts = React.useMemo(() => {
+    const c: Record<number, number> = {};
+    testsList.forEach((it) => { const n = Number(it.chapter) || 0; if (n) c[n] = (c[n] || 0) + 1; });
+    return c;
+  }, [testsList]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const chips = (val: string, set: (v: string) => void, counts: Record<number, number>) => (
     <div className="flex flex-wrap gap-2">
@@ -682,7 +723,7 @@ export default function EditPage() {
               <Button variant="outline" onClick={restoreAllDeleted}>♻️ {t('Restore all deleted base items')}</Button>
               <Button variant="destructive" onClick={resetAll}>🗑 {t('Reset ALL my changes')}</Button>
             </div>
-            <p className="text-xs text-muted-foreground">{backupStats}</p>
+            <p className="text-xs text-muted-foreground">{backupStats()}</p>
           </div>
         </TabsContent>
       </Tabs>

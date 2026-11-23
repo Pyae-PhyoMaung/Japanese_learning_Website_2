@@ -70,5 +70,41 @@ export const MM: Record<string, string> = {"Home": "ပင်မ", "Library": "�
   "Tap a chapter below to learn it.": "အောက်မှ အခန်းတစ်ခုကို နှိပ်ပြီး လေ့လာပါ။",
   "Delete chapter": "အခန်းကို ဖျက်မလား",
   "Its items will move to chapter 0 (unassigned).": "အရာများကို အခန်း ၀ (ရွေးမထားသော) သို့ ရွှေ့မည်။",
-  "Chapter deleted. Its items moved to chapter 0.": "အခန်းဖျက်ပြီး။ အရာများကို အခန်း ၀ သို့ ရွှေ့လိုက်သည်။"
+  "Chapter deleted. Its items moved to chapter 0.": "အခန်းဖျက်ပြီး။ အရာများကို အခန်း ၀ သို့ ရွှေ့လိုက်သည်။",
+
+  /* Files: trash */
+  "Trash": "အမှိုက်ပုံး",
+  "Restore": "ပြန်ယူမည်",
+  "Delete forever": "အပြီးအဆုံး ဖျက်မည်",
+  "Move to Trash": "အမှိုက်ပုံးသို့ ရွှေ့မည်",
+  "Move to Trash?": "အမှိုက်ပုံးထဲ ရွှေ့မလား?",
+  "You can restore it from Trash.": "အမှိုက်ပုံးမှ ပြန်ယူနိုင်ပါသည်။",
+  "Delete forever?": "အပြီးအဆုံး ဖျက်မလား?",
+  "Moved to Trash ♻️": "အမှိုက်ပုံးထဲ ရွှေ့ပြီးပါပြီ ♻️",
+  "File restored ♻️": "ဖိုင် ပြန်ယူပြီးပါပြီ ♻️",
+  "Deleted forever 🗑": "အပြီးအဆုံး ဖျက်ပြီးပါပြီ 🗑",
+  "Trash is empty.": "အမှိုက်ပုံး လွတ်နေပါသည်။",
+  "Trashed files are kept (also on the server) until you delete them forever.": "အမှိုက်ပုံးထဲက ဖိုင်များကို အပြီးအဆုံး မဖျက်မချင်း (server ပေါ်မှာပါ) သိမ်းဆည်းထားပါမည်။",
+
+  /* PDF reader */
+  "Single page": "တစ်မျက်နှာစီ",
+  "Continuous scroll": "ဆက်တိုက် ဖတ်ရှုရန်",
+
+  /* Library */
+  "PDF books": "PDF စာအုပ်များ",
+  "Images": "ပုံများ",
+  "Videos": "ဗီဒီယိုများ",
+  "Audio": "အသံများ",
+  "Documents": "စာရွက်စာတမ်းများ",
+  "Other files": "အခြား ဖိုင်များ",
+  "book(s)": "စောင်",
+  "image(s)": "ပုံ",
+  "video(s)": "ခု",
+  "audio(s)": "ခု",
+  "document(s)": "ခု",
+  "file(s)": "ခု",
+  "Download": "ဒေါင်းလုဒ်",
+  "No files here yet — upload on the Files page and they appear here.": "ဖိုင် မရှိသေးပါ — Files စာမျက်နှာမှာ တင်လိုက်ရင် ဒီမှာ ပေါ်လာပါမယ်။",
+  "The reader loads PDF.js from a CDN, so an internet connection is required the first time. The study books live in the assets/pdfs folder; uploaded files come from the": "Reader သည် PDF.js ကို CDN မှ ရယူသည် — ပထမအကြိမ် ဖွင့်ရန် အင်တာနက် လိုအပ်ပါသည်။ သင်ဖတ်နေသော စာအုပ်များသည် assets/pdfs ဖိုင်တွင် ရှိပြီး တင်ထားသော ဖိုင်များကို",
+  "page and are stored in this browser + your account.": "စာမျက်နှာမှ ရယူထားပြီး ဤဘရောက်ဇာနှင့် သင်၏ account တွင် သိမ်းဆည်းထားပါသည်။"
 };
