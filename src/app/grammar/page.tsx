@@ -4,7 +4,7 @@
    meaning / Myanmar explanation, examples with speak buttons, and exercise
    quizzes (fill-in-the-blank multiple choice) per point and for the chapter. */
 import * as React from 'react';
-import { byLevel, grammarList, chapterTitle, useJL, level } from '@/lib/jl';
+import { byLevel, grammarList, chapterTitle, useJL } from '@/lib/jl';
 import { LevelBar } from '@/components/level-bar';
 import { PageHead } from '@/components/page-head';
 import { ChapterGrid } from '@/components/chapter-grid';
@@ -72,7 +72,7 @@ export default function GrammarPage() {
 
   return (
     <div>
-      <PageHead icon="文" title="Grammar" subtitle={(mounted ? level() : '') + ' · ' + list.length + ' grammar points'} />
+      <PageHead icon="文" title="Grammar" subtitle={'Grammar points of your selected JLPT level, grouped by chapter/lesson — tap a chapter to see its grammar, then study each point with examples you can listen to and interactive exercises.'} />
       <LevelBar />
       <ChapterGrid
         chapters={[{ n: 0, t: t('All grammar'), count: ALL.length, extra: true }].concat(

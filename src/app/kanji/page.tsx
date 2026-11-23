@@ -6,7 +6,7 @@
    over a shared scope (All chapters or one chapter). URL state ?ch/?q/?k is
    kept via history.replaceState so back/refresh return to this view. */
 import * as React from 'react';
-import { byLevel, kanjiList, chapterTitle, chapters, useJL, level } from '@/lib/jl';
+import { byLevel, kanjiList, chapterTitle, chapters, useJL } from '@/lib/jl';
 import { pref } from '@/lib/store';
 import { LevelBar } from '@/components/level-bar';
 import { PageHead } from '@/components/page-head';
@@ -111,7 +111,7 @@ export default function KanjiPage() {
 
   return (
     <div>
-      <PageHead icon="漢" title="Kanji" subtitle={(mounted ? level() : '') + ' · ' + ALL.length + ' kanji'} />
+      <PageHead icon="漢" title="Kanji" subtitle={'Kanji of your selected JLPT level, grouped by chapter — tap a chapter button to see its kanji, then tap any kanji for details and audio. Switch to Flashcards / Quiz to practice.'} />
       <LevelBar />
       <Tabs defaultValue="learn">
         <TabsList className="mb-4 flex-wrap">

@@ -7,6 +7,7 @@ import * as React from 'react';
 import { kanjiList, vocabList, merged, useJL } from '@/lib/jl';
 import { pref } from '@/lib/store';
 import { PageHead } from '@/components/page-head';
+import { LevelBar } from '@/components/level-bar';
 import { Flashcards } from '@/components/flashcards';
 import { Quiz } from '@/components/quiz';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -60,7 +61,8 @@ export default function TestsPage() {
 
   return (
     <div>
-      <PageHead icon="📝" title="Tests" subtitle={kanji.length + ' kanji + ' + words.length + ' words selected'} />
+      <PageHead icon="📝" title="Tests" subtitle={'Practice with flashcards and auto-generated quizzes from your study data, or take the custom tests and flashcard decks you build yourself.'} />
+      <LevelBar />
       <Tabs defaultValue="cards">
         <TabsList className="mb-4 flex-wrap">
           <TabsTrigger value="cards">{t('Flashcards')}</TabsTrigger>

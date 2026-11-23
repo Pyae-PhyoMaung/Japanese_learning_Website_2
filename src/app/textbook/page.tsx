@@ -42,7 +42,7 @@ export default function TextbookPage() {
 
   return (
     <div>
-      <PageHead icon="📖" title="Library" subtitle={t('Textbooks and your uploaded books')} />
+      <PageHead icon="📖" title="Library" subtitle={'Pick a category below — PDF books (your two study books plus uploaded PDFs), images, videos, audio and documents each sit behind their own button. Your last page is remembered for each book.'} />
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('Textbooks')}</h2>
       <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {BUNDLED.map((b) => (

@@ -114,7 +114,7 @@ export default function PartnerPage() {
 
   return (
     <div>
-      <PageHead icon="🤝" title="Study Partner" subtitle={t('Chat, add items, get quizzed')} />
+      <PageHead icon="🤝" title="Study Partner" subtitle={'Your on-site study companion — look things up, take quizzes, and add new vocab, kanji, listening sentences or even whole quizzes right from the chat. It remembers your conversations, and everything you add shows up on the other pages.'} />
       <div className="mx-auto max-w-2xl space-y-4">
         <div className="h-80 space-y-2 overflow-y-auto rounded-xl border bg-card p-4 shadow-sm">
           {msgs.map((m, i) => (

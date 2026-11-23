@@ -178,7 +178,7 @@ export default function EditPage() {
 
   return (
     <div>
-      <PageHead icon="✏️" title="Add / Edit" subtitle={t('Your own items, chapter names, backups and stats — all cloud-synced')} />
+      <PageHead icon="✏️" title="Add / Edit" subtitle={'Add your own vocabulary, grammar, kanji and practice tests — or edit any existing entry. Every form saves automatically as you type (the 💾 buttons still work), and each entry belongs to a JLPT level.'} />
       <Tabs value={tab} onValueChange={(v) => { setTab(v); setQ(''); setEditing(null); }}>
         <TabsList className="mb-4 flex-wrap">
           {KIND_TABS.map((k) => (

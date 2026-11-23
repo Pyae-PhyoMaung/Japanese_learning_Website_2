@@ -47,7 +47,7 @@ export default function KanaPage() {
 
   return (
     <div>
-      <PageHead icon="あ" title="Kana" subtitle={t('Hiragana & katakana — write them on the pad')} />
+      <PageHead icon="あ" title="Kana" subtitle={'All 46 basic kana, plus dakuten/handakuten and combined sounds — in both scripts. Tap a kana to load it on the writing grid, or use ← Prev / Next → to practice in order.'} />
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList className="mb-4">
           <TabsTrigger value="hiragana">{t('Hiragana')} ひらがな</TabsTrigger>

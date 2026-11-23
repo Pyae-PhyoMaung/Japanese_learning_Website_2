@@ -6,7 +6,7 @@
    memorization images. */
 import * as React from 'react';
 import Link from 'next/link';
-import { kanjiList, vocabList, chapterTitle, kimgGet, useJL, level } from '@/lib/jl';
+import { kanjiList, vocabList, chapterTitle, kimgGet, useJL } from '@/lib/jl';
 import { pref } from '@/lib/store';
 import { fileGet } from '@/lib/files';
 import { LevelBar } from '@/components/level-bar';
@@ -20,7 +20,7 @@ import { shuffle } from '@/lib/utils';
 import type { Kanji, Vocab } from '@/lib/types';
 
 export default function LearnPage() {
-  useJL();
+  const jlv = useJL(); /* store version — clears/edits elsewhere re-shuffle this session */
   const { t } = useT();
   const toast = useToast();
   const [mounted, setMounted] = React.useState(false);
@@ -52,9 +52,13 @@ export default function LearnPage() {
 
   const pool =
     tab === 'kanji'
-      ? ch === 'sel' ? K.filter((k) => selK.includes(k.id)) : K.filter((k) => String(k.chapter || 0) === ch)
-      : ch === 'sel' ? V.filter((v) => selV.includes(v.id)) : V.filter((v) => String(v.chapter || 0) === ch);
-  const items = React.useMemo(() => shuffle(pool as any[]), [tab, ch, seed, mounted]);
+      ? ch === 'sel' ? K.filter((k) => selK.includes(k.id))
+        : ch === 'all' ? K
+        : K.filter((k) => String(k.chapter || 0) === ch)
+      : ch === 'sel' ? V.filter((v) => selV.includes(v.id))
+        : ch === 'all' ? V
+        : V.filter((v) => String(v.chapter || 0) === ch);
+  const items = React.useMemo(() => shuffle(pool as any[]), [tab, ch, seed, mounted, jlv]);
   const cur: any = items[idx] || null;
 
   React.useEffect(() => { setIdx(0); setRevealed(false); }, [tab, ch]);
@@ -87,17 +91,25 @@ export default function LearnPage() {
       <button type="button" onClick={() => { setCh('sel'); }} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (ch === 'sel' ? ' border-primary bg-primary text-primary-foreground' : '')}>
         ★ {t('Selected')} ({tab === 'kanji' ? selK.length : selV.length})
       </button>
+      <button type="button" onClick={() => { setCh('all'); }} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (ch === 'all' ? ' border-primary bg-primary text-primary-foreground' : '')}>
+        📖 {t('All')} ({tab === 'kanji' ? K.length : V.length})
+      </button>
       {(tab === 'kanji' ? kanjiChapters : vocabChapters).map((n) => (
         <button key={n} type="button" onClick={() => setCh(String(n))} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (String(n) === ch ? ' border-primary bg-primary text-primary-foreground' : '')}>
           {n}章 {chapterTitle(tab, n, '')}
         </button>
       ))}
+      {(tab === 'kanji' ? selK.length : selV.length) > 0 ? (
+        <button type="button" onClick={() => { pref('sel_' + tab, []); toast(t('Selection cleared.'), 'ok'); }} className="rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent">
+          ✕ {t('Clear selection')}
+        </button>
+      ) : null}
     </div>
   );
 
   return (
     <div>
-      <PageHead icon="🎯" title="Learn" subtitle={(mounted ? level() : '') + ' · ' + items.length + ' items'} />
+      <PageHead icon="🎯" title="Learn" subtitle={'Study the kanji and words you selected on the Kanji / Vocabulary pages, or learn a whole chapter at once — all in your selected JLPT level. Readings and meanings stay hidden until you tap “Reveal”.'} />
       <LevelBar />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4">
@@ -126,8 +138,9 @@ export default function LearnPage() {
             <p className="text-sm text-muted-foreground">{t('Try to remember it, then reveal.')}</p>
           )}
           <div className="flex justify-center gap-2">
-            <Button onClick={() => { setRevealed(true); speak(cur.kanji || cur.jp); }}>{t('Reveal')}</Button>
-            <Button variant="outline" onClick={() => { setIdx((idx + 1) % items.length); setRevealed(false); }}>{t('Next')}</Button>
+            <Button onClick={() => { setRevealed(!revealed); if (!revealed) speak(cur.kanji || cur.jp); }}>{revealed ? t('Hide') : t('Reveal')}</Button>
+            <Button variant="outline" onClick={() => { setIdx((idx - 1 + items.length) % items.length); setRevealed(false); }}>← {t('Prev')}</Button>
+            <Button variant="outline" onClick={() => { setIdx((idx + 1) % items.length); setRevealed(false); }}>{t('Next')} →</Button>
             <Link href={'/write?tab=' + tab + '&' + (tab === 'kanji' ? 'k=' + encodeURIComponent(cur.kanji) : 'v=' + cur.id)}>
               <Button variant="ghost">✍️</Button>
             </Link>

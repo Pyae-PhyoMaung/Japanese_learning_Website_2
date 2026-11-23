@@ -53,7 +53,7 @@ export default function FilesPage() {
 
   return (
     <div>
-      <PageHead icon="🗂️" title="Files" subtitle={t('Your images, books and media — saved on this device and synced to your cloud')} />
+      <PageHead icon="🗂️" title="Files" subtitle={'Upload study materials for each file type — every category below has its own Upload button. Uploaded files also appear in the Library page (PDFs open in the reader; images, videos, audio and documents have their own buttons there), and everything syncs to your account. Click a category header to open or close it.'} />
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <input type="file" className="hidden" id="f-up" onChange={(e) => upload(e.target.files && e.target.files[0])} />
         <Button onClick={() => (document.getElementById('f-up') as HTMLInputElement)?.click()}>⬆️ {t('Upload file')}</Button>

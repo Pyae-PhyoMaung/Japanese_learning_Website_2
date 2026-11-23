@@ -55,13 +55,15 @@ export function ChapterGrid({
                 isActive ? 'border-primary bg-primary text-primary-foreground hover:bg-primary' : ''
               )}
             >
-              {c.t ? (
+              {c.extra || !c.t ? (
+                /* special entries (All / Essential / All kanji…) and untitled chapters: no leading number */
+                <span className="font-medium">{c.t || c.n + '章'}</span>
+              ) : (
+                /* regular chapters — “N章 Title” like the original site */
                 <>
-                  <span className="mr-1 font-medium">{c.n}</span>
+                  <span className="mr-1 font-medium">{c.n}章</span>
                   <span className={cn(isActive ? 'text-primary-foreground/90' : 'text-muted-foreground')}>{c.t}</span>
                 </>
-              ) : (
-                <span className="font-medium">{c.n}</span>
               )}
               {c.count ? <span className={cn('ml-2 rounded-full px-1.5 py-0.5 text-xs', isActive ? 'bg-primary-foreground/20' : 'bg-muted')}>{c.count}</span> : null}
             </button>

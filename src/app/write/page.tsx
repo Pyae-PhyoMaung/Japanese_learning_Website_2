@@ -26,6 +26,7 @@ export default function WritePage() {
   const [kChar, setKChar] = React.useState<string>('');
   const [vId, setVId] = React.useState<string>('');
   const [showGuide, setShowGuide] = React.useState(true);
+  const [showAll, setShowAll] = React.useState(false); /* item lists stay closed until asked for */
   const padRef = React.useRef<PadApi>(null);
 
   const K: Kanji[] = mounted ? kanjiList() : [];
@@ -90,35 +91,59 @@ export default function WritePage() {
 
   return (
     <div>
-      <PageHead icon="✍️" title="Writing" subtitle={t('Write kanji and words over the light-gray guide')} />
+      <PageHead icon="✍️" title="Writing" subtitle={'Practice writing kanji and whole words by hand on the guided grid — pick a chapter and work through it, or search for any kanji or word in your selected level. Trace the light-gray guide, or hide it to test yourself.'} />
       <LevelBar />
-      <Tabs value={tab} onValueChange={(v) => { setTab(v as any); setCh('all'); setQ(''); }}>
+      <Tabs value={tab} onValueChange={(v) => { setTab(v as any); setCh('all'); setQ(''); setShowAll(false); }}>
         <TabsList className="mb-4">
           <TabsTrigger value="kanji">{t('Kanji')}</TabsTrigger>
           <TabsTrigger value="vocab">{t('Vocabulary')}</TabsTrigger>
         </TabsList>
         <TabsContent value="kanji">
           {chips}
-          <div className="mb-6 grid grid-cols-4 gap-2 sm:grid-cols-8 md:grid-cols-10">
-            {kList.map((k) => (
-              <button key={k.id} type="button" onClick={() => { setKChar(k.kanji); padRef.current?.clear(); }}
-                className={'rounded-lg border py-2 text-2xl hover:bg-accent' + (k.kanji === kChar ? ' border-primary bg-primary text-primary-foreground' : '')}>
-                {k.kanji}
-              </button>
-            ))}
-          </div>
+          {q || showAll ? (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{kList.length} {t('kanji')}</span>
+                {!q && showAll ? <Button size="sm" variant="ghost" onClick={() => setShowAll(false)}>🙈 {t('Hide')}</Button> : null}
+              </div>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-8 md:grid-cols-10">
+                {kList.map((k) => (
+                  <button key={k.id} type="button" onClick={() => { setKChar(k.kanji); padRef.current?.clear(); }}
+                    className={'rounded-lg border py-2 text-2xl hover:bg-accent' + (k.kanji === kChar ? ' border-primary bg-primary text-primary-foreground' : '')}>
+                    {k.kanji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <Button variant="outline" onClick={() => setShowAll(true)}>👁 {t('Show all kanji')} ({kList.length})</Button>
+            </div>
+          )}
           {padArea}
         </TabsContent>
         <TabsContent value="vocab">
           {chips}
-          <div className="mb-6 flex flex-wrap gap-2">
-            {vList.map((v) => (
-              <button key={v.id} type="button" onClick={() => { setVId(v.id); padRef.current?.clear(); }}
-                className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (v.id === vId ? ' border-primary bg-primary text-primary-foreground' : '')}>
-                {v.jp}
-              </button>
-            ))}
-          </div>
+          {q || showAll ? (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{vList.length} {t('words')}</span>
+                {!q && showAll ? <Button size="sm" variant="ghost" onClick={() => setShowAll(false)}>🙈 {t('Hide')}</Button> : null}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {vList.map((v) => (
+                  <button key={v.id} type="button" onClick={() => { setVId(v.id); padRef.current?.clear(); }}
+                    className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (v.id === vId ? ' border-primary bg-primary text-primary-foreground' : '')}>
+                    {v.jp}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <Button variant="outline" onClick={() => setShowAll(true)}>👁 {t('Show all words')} ({vList.length})</Button>
+            </div>
+          )}
           {padArea}
         </TabsContent>
       </Tabs>

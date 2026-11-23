@@ -5,7 +5,7 @@
    select mode (sel_vocab), detail dialog, and practice tabs over a shared
    scope. URL state ?ch=ess|all|N and ?q= via history.replaceState. */
 import * as React from 'react';
-import { byLevel, vocabList, kexVocab, chapterTitle, useJL, level } from '@/lib/jl';
+import { byLevel, vocabList, kexVocab, chapterTitle, useJL } from '@/lib/jl';
 import { pref } from '@/lib/store';
 import { LevelBar } from '@/components/level-bar';
 import { PageHead } from '@/components/page-head';
@@ -123,7 +123,7 @@ export default function VocabPage() {
 
   return (
     <div>
-      <PageHead icon="語" title="Vocabulary" subtitle={(mounted ? level() : '') + ' · ' + ALL.length + ' words'} />
+      <PageHead icon="語" title="Vocabulary" subtitle={'Words of your selected JLPT level, grouped by chapter — tap a chapter to see its words (word, spelling and meaning), then tap a word for details and audio. Practice with flashcards and quizzes.'} />
       <LevelBar />
       <Tabs defaultValue="learn">
         <TabsList className="mb-4 flex-wrap">

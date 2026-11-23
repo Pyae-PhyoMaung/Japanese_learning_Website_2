@@ -38,7 +38,7 @@ export default function DictionaryPage() {
 
   return (
     <div>
-      <PageHead icon="辞" title="Dictionary" subtitle={t('Search words, sentences and kanji')} />
+      <PageHead icon="辞" title="Dictionary" subtitle={'Type an English, Japanese or Myanmar word — get the Japanese, English and Myanmar meanings, plus example sentences, synonyms and antonyms when available. It searches every JLPT level.'} />
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search…')} className="mb-6 h-11 text-base" />
       {!needle ? (
         <p className="text-sm text-muted-foreground">{t('Type Japanese, romaji, English or Myanmar to look things up.')}</p>

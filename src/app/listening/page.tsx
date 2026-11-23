@@ -5,7 +5,7 @@
    you hear, punctuation-insensitive comparison via norm()), and a speed
    control for the speech rate. */
 import * as React from 'react';
-import { byLevel, vocabList, sentenceList, kexVocab, useJL, level } from '@/lib/jl';
+import { byLevel, vocabList, sentenceList, kexVocab, useJL } from '@/lib/jl';
 import { LevelBar } from '@/components/level-bar';
 import { PageHead } from '@/components/page-head';
 import { Quiz } from '@/components/quiz';
@@ -79,7 +79,7 @@ export default function ListeningPage() {
 
   return (
     <div>
-      <PageHead icon="🎧" title="Listening" subtitle={(mounted ? level() : '') + ' · ' + words.length + ' words / ' + sents.length + ' sentences'} />
+      <PageHead icon="🎧" title="Listening" subtitle={'Train your ear with words and full sentences using Japanese speech synthesis — replay, slow down, and test yourself with dictation.'} />
       <LevelBar />
       <div className="mb-4 flex items-center gap-3 rounded-lg border bg-muted/40 p-3">
         <span className="text-sm font-medium">🐢</span>
