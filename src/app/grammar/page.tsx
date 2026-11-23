@@ -25,6 +25,7 @@ export default function GrammarPage() {
   const [mounted, setMounted] = React.useState(false);
   const [selectMode, setSelectMode] = React.useState(false);
   const [ch, setCh] = React.useState<string>('');
+  const [q, setQ] = React.useState('');
   const [quiz, setQuiz] = React.useState<QuizItem[] | null>(null);
   const [quizTitle, setQuizTitle] = React.useState('');
 
@@ -52,7 +53,19 @@ export default function GrammarPage() {
     if (chv) setCh(chv);
   }, []);
 
-  const list = ch === '' ? ALL : ALL.filter((g) => String(g.chapter || 0) === ch);
+  const qLower = q.trim().toLowerCase();
+  const list = ALL.filter((g) => {
+    if (ch !== '' && String(g.chapter || 0) !== ch) return false;
+    if (qLower) {
+      const hay = [g.title, g.pattern, g.meaning, g.mm, g.explanation]
+        .concat((g.examples || []).flatMap((e) => [e.jp, e.rd, e.en]))
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (!hay.includes(qLower)) return false;
+    }
+    return true;
+  });
 
   /* selection — like the Kanji / Vocabulary pages (sel_grammar pref) */
   const sel = mounted ? (pref('sel_grammar') || []) : [];
@@ -93,21 +106,28 @@ export default function GrammarPage() {
         )}
         active={ch}
         onPick={(n) => setCh(String(n))}
+        search={q}
+        onSearch={(v) => setQ(v)}
+        searchPlaceholder="Search grammar…"
+        showBoxes={!q}
+        countNoun="points"
+        controls={
+          <>
+            <Button
+              size="sm"
+              variant={selectMode ? 'default' : 'outline'}
+              onClick={() => { setSelectMode(!selectMode); if (!selectMode) toast('Select mode: tap grammar points to add them to your Learn list.', 'ok'); }}
+            >
+              {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
+            </Button>
+            <Link href="/learn?tab=grammar" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({sel.length})</Link>
+            <Button size="sm" variant="outline" onClick={() => { pref('sel_grammar', []); toast('Selection cleared.', 'ok'); }}>✕ {t('Clear selection')}</Button>
+          </>
+        }
       />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">{list.length} {t('points')}</div>
+        <div className="text-sm text-muted-foreground">{list.length}{q ? ' / ' + ALL.length : ''} {t('points')}</div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant={selectMode ? 'default' : 'outline'}
-            onClick={() => { setSelectMode(!selectMode); if (!selectMode) toast('Select mode: tap grammar points to add them to your Learn list.', 'ok'); }}
-          >
-            {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
-          </Button>
-          <Link href="/learn?tab=grammar" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({sel.length})</Link>
-          <Button size="sm" variant="ghost" onClick={() => { pref('sel_grammar', []); toast('Selection cleared.', 'ok'); }}>
-            ✕ {t('Clear selection')}
-          </Button>
           <Button onClick={practiceAll}>{t('Practice all')}</Button>
         </div>
       </div>

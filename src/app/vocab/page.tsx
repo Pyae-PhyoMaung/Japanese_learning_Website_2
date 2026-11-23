@@ -73,7 +73,7 @@ export default function VocabPage() {
   }, [view, cat, q]);
 
   const filtered = ALL.filter((v) => {
-    if (cat && !q) {
+    if (view === 'words' && cat) {
       if (cat === '__essential__') { if (v.chapter) return false; }
       else if (String(v.chapter || 0) !== cat) return false;
     }
@@ -134,26 +134,59 @@ export default function VocabPage() {
         </TabsList>
         <TabsContent value="learn">
           {view === 'chapters' ? (
+            <>
             <ChapterGrid
               chapters={chapterCards}
               active={cat}
               onPick={(key) => { setCat(String(key)); setView('words'); syncUrl(); }}
               search={q}
-              onSearch={(v) => { setQ(v.trim()); if (v.trim()) setView('words'); syncUrl(); }}
+              onSearch={(v) => { setQ(v); syncUrl(); }}
               searchPlaceholder="Search words…"
+              showBoxes={!q}
+              countNoun="words"
+              controls={
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setSelectMode(true); setCat(''); setView('words'); syncUrl(); toast('Select mode: tap words to add them to your Learn list.', 'ok'); }}
+                  >
+                    ☑ {t('Select')}
+                  </Button>
+                  <Link href="/learn?tab=vocab" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_vocab') || []).length})</Link>
+                  <Button size="sm" variant="outline" onClick={() => { pref('sel_vocab', []); toast('Selection cleared.', 'ok'); }}>✕ {t('Clear selection')}</Button>
+                </>
+              }
             />
+            {q ? (
+              <div>
+                <div className="mb-2 text-xs text-muted-foreground">{filtered.length} words</div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {filtered.map((v) => (
+                    <VocabCard key={v.id} v={v} selected={selectMode && (pref('sel_vocab') || []).includes(v.id)} onToggle={selectMode ? toggleSel : undefined} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            </>
           ) : (
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => { setView('chapters'); setQ(''); syncUrl(); }}>← {t('Chapters')}</Button>
                 <span className="font-medium">
-                  {q ? 'Search results' : cat === '__essential__' ? '★ ' + t('Essential & my words') : cat === '' ? t('All words') : cat + '章 ' + (chs.find((c) => String(c.n) === cat)?.t || '')}
+                  {cat === '__essential__' ? '★ ' + t('Essential & my words') : cat ? cat + '章 ' + (chs.find((c) => String(c.n) === cat)?.t || '') : q ? 'Search results' : t('All words')}
                 </span>
+                <input
+                  value={q}
+                  onChange={(e) => { setQ(e.target.value); syncUrl(); }}
+                  placeholder={t('Search') + '…'}
+                  className="h-8 min-w-[160px] flex-1 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
                 <Button size="sm" variant={selectMode ? 'default' : 'outline'} onClick={() => { setSelectMode(!selectMode); if (!selectMode) toast('Select mode: tap words to add them to your Learn list.', 'ok'); }}>
                   {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => { pref('sel_vocab', []); toast('Selection cleared.', 'ok'); }}>
-                  {t('Clear')} ({(pref('sel_vocab') || []).length})
+                <Button size="sm" variant="outline" onClick={() => { pref('sel_vocab', []); toast('Selection cleared.', 'ok'); }}>
+                  ✕ {t('Clear selection')} ({(pref('sel_vocab') || []).length})
                 </Button>
                 <Link href="/learn?tab=vocab" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_vocab') || []).length})</Link>
               </div>
