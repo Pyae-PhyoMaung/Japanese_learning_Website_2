@@ -11,7 +11,6 @@ import { PageHead } from '@/components/page-head';
 import { Pad, PadApi } from '@/components/pad';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { SpeakBtn } from '@/components/words';
 import { useT } from '@/components/providers';
 import { speak } from '@/lib/tts';
 import type { Kanji, Vocab } from '@/lib/types';
@@ -27,6 +26,7 @@ export default function WritePage() {
   const [vId, setVId] = React.useState<string>('');
   const [showGuide, setShowGuide] = React.useState(true);
   const [showAll, setShowAll] = React.useState(false); /* item lists stay closed until asked for */
+  const [showCats, setShowCats] = React.useState(true);
   const padRef = React.useRef<PadApi>(null);
 
   const K: Kanji[] = mounted ? kanjiList() : [];
@@ -53,39 +53,99 @@ export default function WritePage() {
     .filter((v) => !q || (v.jp + ' ' + (v.rd || '') + ' ' + (v.en || '') + ' ' + (v.mm || '')).toLowerCase().includes(q.toLowerCase()));
 
   const curV = V.find((v) => v.id === vId) || null;
+  const curK = K.find((k) => k.kanji === kChar) || null;
+
+  /* auto-select the first item of the scope so the pad is never empty */
+  React.useEffect(() => {
+    if (!mounted) return;
+    if (tab === 'kanji' && !kChar && kList.length) setKChar(kList[0].kanji);
+    if (tab === 'vocab' && !vId && vList.length) setVId(vList[0].id);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [mounted, tab, ch, q]);
+
+  /* Prev / Next walk the current scope (chapter + search results) */
+  const gotoItem = (dir: number) => {
+    if (tab === 'kanji') {
+      if (!kList.length) return;
+      const i = kList.findIndex((k) => k.kanji === kChar);
+      const next = i < 0 ? 0 : (i + dir + kList.length) % kList.length;
+      setKChar(kList[next].kanji);
+    } else {
+      if (!vList.length) return;
+      const i = vList.findIndex((v) => v.id === vId);
+      const next = i < 0 ? 0 : (i + dir + vList.length) % vList.length;
+      setVId(vList[next].id);
+    }
+    padRef.current?.clear();
+  };
+  const pos = tab === 'kanji' ? Math.max(0, kList.findIndex((k) => k.kanji === kChar)) : Math.max(0, vList.findIndex((v) => v.id === vId));
+  const total = tab === 'kanji' ? kList.length : vList.length;
 
   const chips = (
-    <div className="mb-4 flex flex-wrap gap-2">
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search')} className="h-8 w-40 rounded-md border border-input bg-transparent px-3 text-sm" />
-      <button type="button" onClick={() => setCh('all')} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (ch === 'all' ? ' border-primary bg-primary text-primary-foreground' : '')}>
-        {t('All')} ({tab === 'kanji' ? K.length : V.length})
+    <div className="mb-4 space-y-2">
+      <button type="button" onClick={() => setShowCats(!showCats)} className="rounded-lg border px-3 py-1.5 text-sm hover:bg-accent">
+        {showCats ? '▾' : '▸'} {t('🗂️ Categories')}
       </button>
-      {(tab === 'kanji' ? kanjiChapters : vocabChapters).map((n) => (
-        <button key={n} type="button" onClick={() => setCh(String(n))} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (String(n) === ch ? ' border-primary bg-primary text-primary-foreground' : '')}>
-          {n}章 {chapterTitle(tab, n, '')}
-        </button>
-      ))}
+      {showCats ? (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setCh('all')} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (ch === 'all' ? ' border-primary bg-primary text-primary-foreground' : '')}>
+            {t('All')} ({tab === 'kanji' ? K.length : V.length})
+          </button>
+          {(tab === 'kanji' ? kanjiChapters : vocabChapters).map((n) => (
+            <button key={n} type="button" onClick={() => setCh(String(n))} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (String(n) === ch ? ' border-primary bg-primary text-primary-foreground' : '')}>
+              {n}章 {chapterTitle(tab, n, '')} ({tab === 'kanji' ? K.filter((x) => String(x.chapter || 0) === String(n)).length : V.filter((x) => String(x.chapter || 0) === String(n)).length})
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 
+  const padChar = tab === 'kanji' ? kChar : curV ? curV.jp : '';
   const padArea = (
-    <div className="flex flex-col items-center gap-3">
-      <Pad ref={padRef} char={tab === 'kanji' ? kChar : curV ? curV.jp : ''} show={showGuide} />
-      <div className="flex flex-wrap justify-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => padRef.current?.undo()}>↩ {t('Undo')}</Button>
-        <Button variant="outline" size="sm" onClick={() => padRef.current?.clear()}>{t('Clear')}</Button>
-        <Button variant="outline" size="sm" onClick={() => setShowGuide(!showGuide)}>{showGuide ? '👁 ' + t('Hide guide') : '👁 ' + t('Show guide')}</Button>
-        {(tab === 'kanji' ? kChar : curV ? curV.jp : '') ? <SpeakBtn text={tab === 'kanji' ? kChar : curV!.jp} /> : null}
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="mx-auto shrink-0 lg:mx-0">
+        <Pad ref={padRef} char={padChar} show={showGuide} />
       </div>
-      {(tab === 'kanji' ? kChar : curV) ? (
-        <div className="text-center text-sm text-muted-foreground">
-          {tab === 'kanji'
-            ? (K.find((k) => k.kanji === kChar)?.meaning || '')
-            : (curV ? (curV.rd || '') + ' · ' + (curV.mm || curV.en || '') : '')}
+      <div className="flex-1 space-y-3">
+        {padChar ? (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-2xl font-medium">
+                {tab === 'kanji'
+                  ? [(curK && curK.on && curK.on.length ? curK.on.join(' · ') : ''), (curK && curK.kun) || ''].filter(Boolean).join(' / ') || kChar
+                  : curV ? [curV.jp, curV.rd || ''].filter(Boolean).join(' · ') : ''}
+              </div>
+              <Button variant="outline" size="sm" onClick={() => speak(padChar)}>🔊 {t('Listen')}</Button>
+            </div>
+            <div className="text-muted-foreground">
+              {tab === 'kanji'
+                ? curK ? [curK.en || '', curK.meaning || ''].filter(Boolean).join(' · ') : ''
+                : curV ? [curV.en || '', curV.mm || ''].filter(Boolean).join(' · ') : ''}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t('Pick a character or word to practice.')}</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => gotoItem(-1)}>{t('← Prev')}</Button>
+          <Button variant="outline" size="sm" onClick={() => gotoItem(1)}>{t('Next →')}</Button>
+          <Button variant="outline" size="sm" onClick={() => padRef.current?.clear()}>🖌 {t('Clear')}</Button>
         </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">{t('Pick a character or word to practice.')}</p>
-      )}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => padRef.current?.undo()}>{t('↩ Undo stroke')}</Button>
+          <Button variant="outline" size="sm" onClick={() => setShowGuide(!showGuide)}>{showGuide ? t('👁 Hide guide') : t('👁 Show guide')}</Button>
+        </div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={tab === 'kanji' ? 'Search kanji, reading or meaning…' : 'Search words, reading or meaning…'}
+          className="h-9 w-full max-w-sm rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        {padChar && total ? (
+          <div className="text-sm text-muted-foreground">{tab === 'kanji' ? t('Kanji') : t('Words')} {pos + 1} of {total}</div>
+        ) : null}
+      </div>
     </div>
   );
 
