@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { SpeakBtn } from '@/components/words';
 import { useT, useToast } from '@/components/providers';
 import { speak } from '@/lib/tts';
-import { shuffle } from '@/lib/utils';
+import { shuffle, cn } from '@/lib/utils';
 import { KANA_ROWS, kanaUnits } from '@/lib/kana-data';
 import type { Kanji, Vocab, Grammar } from '@/lib/types';
 
@@ -26,7 +26,11 @@ export default function LearnPage() {
   const toast = useToast();
   const [mounted, setMounted] = React.useState(false);
   const [tab, setTab] = React.useState('kanji');
-  const [ch, setCh] = React.useState<string>('sel');
+  /* scope: 'sel' = items ticked on the chapter pages, 'all' = every item of the
+     tab, 'chs' = union of one or more chapters picked below (multi-select). */
+  const [mode, setMode] = React.useState<'sel' | 'all' | 'chs'>('sel');
+  const [picked, setPicked] = React.useState<string[]>([]);
+  const [showCats, setShowCats] = React.useState(true);
   const [idx, setIdx] = React.useState(0);
   const [revealed, setRevealed] = React.useState(false);
   const [seed, setSeed] = React.useState(0);
@@ -70,24 +74,25 @@ export default function LearnPage() {
 
   const pool =
     tab === 'kanji'
-      ? ch === 'sel' ? K.filter((k) => selK.includes(k.id))
-        : ch === 'all' ? K
-        : K.filter((k) => String(k.chapter || 0) === ch)
+      ? mode === 'sel' ? K.filter((k) => selK.includes(k.id))
+        : mode === 'all' ? K
+        : K.filter((k) => picked.includes(String(k.chapter || 0)))
       : tab === 'vocab'
-      ? ch === 'sel' ? V.filter((v) => selV.includes(v.id))
-        : ch === 'all' ? V
-        : V.filter((v) => String(v.chapter || 0) === ch)
+      ? mode === 'sel' ? V.filter((v) => selV.includes(v.id))
+        : mode === 'all' ? V
+        : V.filter((v) => picked.includes(String(v.chapter || 0)))
       : tab === 'kana'
-      ? ch === 'sel' ? KN.filter((k) => selN.includes(k.c))
-        : ch === 'all' ? KN
-        : KN.filter((k) => k.script === ch)
-      : ch === 'sel' ? G.filter((g) => selG.includes(g.id))
-        : ch === 'all' ? G
-        : G.filter((g) => String(g.chapter || 0) === ch);
-  const items = React.useMemo(() => shuffle(pool as any[]), [tab, ch, seed, mounted, jlv]);
+      ? mode === 'sel' ? KN.filter((k) => selN.includes(k.c))
+        : mode === 'all' ? KN
+        : KN.filter((k) => picked.includes(k.script))
+      : mode === 'sel' ? G.filter((g) => selG.includes(g.id))
+        : mode === 'all' ? G
+        : G.filter((g) => picked.includes(String(g.chapter || 0)));
+  const pickedKey = picked.join(',');
+  const items = React.useMemo(() => shuffle(pool as any[]), [tab, mode, pickedKey, seed, mounted, jlv]);
   const cur: any = items[idx] || null;
 
-  React.useEffect(() => { setIdx(0); setRevealed(false); }, [tab, ch]);
+  React.useEffect(() => { setIdx(0); setRevealed(false); }, [tab, mode, pickedKey]);
   React.useEffect(() => {
     setImgUrl(null);
     if (cur && tab === 'kanji' && kimgGet(cur.id)) {
@@ -95,7 +100,7 @@ export default function LearnPage() {
     }
   }, [cur && cur.id, tab]);
 
-  if (mounted && ch === 'sel' && !items.length) {
+  if (mounted && mode === 'sel' && !items.length) {
     return (
       <div>
         <PageHead icon="🎯" title="Learn" />
@@ -116,27 +121,66 @@ export default function LearnPage() {
 
   const selCount = tab === 'kanji' ? selK.length : tab === 'vocab' ? selV.length : tab === 'kana' ? selN.length : selG.length;
   const totalCount = tab === 'kanji' ? K.length : tab === 'vocab' ? V.length : tab === 'kana' ? KN.length : G.length;
-  const scopeChips: string[][] =
+  const unit = tab === 'kanji' ? t('Kanji') : tab === 'vocab' ? t('Words') : t('Grammar');
+  const scopeChapters: { key: string; n: number; label: string; count: number }[] =
     tab === 'kana'
-      ? [['hiragana', 'あ ' + t('Hiragana')], ['katakana', 'ア ' + t('Katakana')]]
-      : (tab === 'kanji' ? kanjiChapters : tab === 'vocab' ? vocabChapters : grammarChapters).map((n) => [String(n), n + '章 ' + chapterTitle(tab, n, '')]);
+      ? [
+          { key: 'hiragana', n: 0, label: 'あ ' + t('Hiragana'), count: KN.filter((k) => k.script === 'hiragana').length },
+          { key: 'katakana', n: 0, label: 'ア ' + t('Katakana'), count: KN.filter((k) => k.script === 'katakana').length },
+        ]
+      : (tab === 'kanji' ? kanjiChapters : tab === 'vocab' ? vocabChapters : grammarChapters).map((n) => {
+          const arr: any[] = tab === 'kanji' ? K : tab === 'vocab' ? V : G;
+          return { key: String(n), n, label: chapterTitle(tab, n, '') || 'Chapter ' + n, count: arr.filter((x) => Number(x.chapter) === n).length };
+        });
+  const togglePicked = (key: string) => {
+    setMode('chs');
+    setPicked((p) => (p.includes(key) ? p.filter((x) => x !== key) : p.concat(key)));
+  };
   const chips = (
-    <div className="mb-4 flex flex-wrap gap-2">
-      <button type="button" onClick={() => { setCh('sel'); }} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (ch === 'sel' ? ' border-primary bg-primary text-primary-foreground' : '')}>
-        ★ {t('Selected')} ({selCount})
-      </button>
-      <button type="button" onClick={() => { setCh('all'); }} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (ch === 'all' ? ' border-primary bg-primary text-primary-foreground' : '')}>
-        📖 {t('All')} ({totalCount})
-      </button>
-      {scopeChips.map(([key, label]) => (
-        <button key={key} type="button" onClick={() => setCh(key)} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (key === ch ? ' border-primary bg-primary text-primary-foreground' : '')}>
-          {label}
+    <div className="mb-4 space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => setMode('sel')} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (mode === 'sel' ? ' border-primary bg-primary text-primary-foreground' : '')}>
+          ★ {t('Selected')} ({selCount})
         </button>
-      ))}
-      {selCount > 0 ? (
-        <button type="button" onClick={() => { pref('sel_' + tab, []); toast(t('Selection cleared.'), 'ok'); }} className="rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent">
-          ✕ {t('Clear selection')}
+        <button type="button" onClick={() => setMode('all')} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (mode === 'all' ? ' border-primary bg-primary text-primary-foreground' : '')}>
+          📖 {t('All')} ({totalCount})
         </button>
+        <button type="button" onClick={() => setShowCats(!showCats)} className={'rounded-lg border px-3 py-1.5 text-sm hover:bg-accent' + (showCats ? ' border-primary bg-primary text-primary-foreground' : '')}>
+          🗂️ {t('🗂️ Categories')}
+        </button>
+        {selCount > 0 ? (
+          <button type="button" onClick={() => { pref('sel_' + tab, []); toast(t('Selection cleared.'), 'ok'); }} className="rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent">
+            ✕ {t('Clear selection')}
+          </button>
+        ) : null}
+      </div>
+      {showCats ? (
+        <div className="flex flex-wrap gap-3">
+          {scopeChapters.map((c) => {
+            const on = picked.includes(c.key);
+            return (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => togglePicked(c.key)}
+                className={cn('flex min-w-[120px] flex-col items-center rounded-xl border bg-card px-4 py-3 shadow-sm transition-colors', on ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent')}
+              >
+                {tab === 'kana' ? (
+                  <span className="text-xl font-semibold">{c.label}</span>
+                ) : (
+                  <>
+                    <span className={cn('text-2xl font-semibold', on ? 'text-primary-foreground' : 'text-primary')}>{c.n}</span>
+                    <span className="text-center text-sm">{c.label}</span>
+                  </>
+                )}
+                <span className={cn('mt-0.5 text-xs', on ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{c.count} {tab === 'kana' ? t('Kana') : unit}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      {mode === 'chs' && !picked.length ? (
+        <p className="text-sm text-muted-foreground">{t('Tap one or more chapters to learn them.')}</p>
       ) : null}
     </div>
   );

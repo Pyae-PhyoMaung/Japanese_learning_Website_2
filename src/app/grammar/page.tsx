@@ -123,15 +123,14 @@ export default function GrammarPage() {
             <div
               key={g.id}
               onClick={selectMode ? () => toggleSel(g.id) : undefined}
-              className={'rounded-xl border bg-card p-5 shadow-sm' + (selectMode ? ' cursor-pointer hover:bg-accent/30' : '') + (selected ? ' ring-2 ring-primary' : '')}
+              className={'rounded-xl border bg-card p-5 shadow-sm' + (selectMode ? ' cursor-pointer' : '') + (selected ? ' border-primary bg-primary text-primary-foreground' : selectMode ? ' hover:bg-accent/30' : '')}
             >
             <div className="flex flex-wrap items-center gap-2">
-              {selectMode ? <span className="text-lg" aria-hidden>{selected ? '☑' : '☐'}</span> : null}
               <h3 className="text-lg font-semibold">{g.title}</h3>
               {g.pattern ? <Badge variant="secondary">{g.pattern}</Badge> : null}
               {g.lesson ? <Badge variant="outline">{t('Lesson')} {g.lesson}</Badge> : null}
             </div>
-            {g.meaning ? <p className="mt-1 text-sm text-muted-foreground">{g.meaning}</p> : null}
+            {g.meaning ? <p className={'mt-1 text-sm ' + (selected ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{g.meaning}</p> : null}
             {g.mm ? <p className="mt-1 text-sm">{g.mm}</p> : null}
             {g.explanation ? <p className="mt-2 text-sm">{g.explanation}</p> : null}
             {g.examples && g.examples.length ? (
