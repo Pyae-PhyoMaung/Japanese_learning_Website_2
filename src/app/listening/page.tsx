@@ -66,9 +66,16 @@ export default function ListeningPage() {
     setRevealed(false);
   }, [tab, ch, mounted]);
 
-  /* auto-play the current item */
+  /* auto-play the current item — only for the user's own moves (Next,
+     tab/chapter change); never on page entry, so visiting Listening is
+     silent until you press something */
+  const firstPlay = React.useRef(true);
   React.useEffect(() => {
     if (!mounted || tab === 'dict') return;
+    if (firstPlay.current) {
+      firstPlay.current = false;
+      return;
+    }
     if (cur) speak(cur.jp, rate);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [idx, tab, ch, mounted]);
