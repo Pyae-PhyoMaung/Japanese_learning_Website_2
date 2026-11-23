@@ -244,7 +244,10 @@ function KanjiDetail({ k, onClose }: { k: Kanji; onClose: () => void }) {
                 <div key={i} className="flex items-start gap-2 rounded-lg border px-3 py-2">
                   <SpeakBtn text={e.word} className="mt-0.5" />
                   <div>
-                    <div className="font-medium">{e.word}{e.reading ? <span className="ml-1 text-muted-foreground">{e.reading}</span> : null}</div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-medium">{e.word}</span>
+                      {e.reading ? <span className="text-sm text-muted-foreground">{e.reading}</span> : null}
+                    </div>
                     {e.meaning ? <div className="text-sm">{e.meaning}</div> : null}
                   </div>
                 </div>

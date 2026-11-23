@@ -132,6 +132,20 @@ export default function KanjiPage() {
               search={q}
               onSearch={(v) => { setQ(v.trim()); if (v.trim()) setView('kanji'); syncUrl(); }}
               searchPlaceholder="Search kanji…"
+              countNoun="kanji"
+              controls={
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setSelectMode(true); setCh(0); setView('kanji'); syncUrl(); toast('Select mode: tap kanji to add them to your Learn list.', 'ok'); }}
+                  >
+                    ☑ {t('Select')}
+                  </Button>
+                  <Link href="/learn?tab=kanji" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_kanji') || []).length})</Link>
+                  <Button size="sm" variant="outline" onClick={() => { pref('sel_kanji', []); toast('Selection cleared.', 'ok'); }}>✕ {t('Clear selection')}</Button>
+                </>
+              }
             />
           ) : (
             <div>
@@ -145,8 +159,8 @@ export default function KanjiPage() {
                 >
                   {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => { pref('sel_kanji', []); toast('Selection cleared.', 'ok'); }}>
-                  {t('Clear')} ({(pref('sel_kanji') || []).length})
+                <Button size="sm" variant="outline" onClick={() => { pref('sel_kanji', []); toast('Selection cleared.', 'ok'); }}>
+                  ✕ {t('Clear selection')} ({(pref('sel_kanji') || []).length})
                 </Button>
                 <Link href="/learn?tab=kanji" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_kanji') || []).length})</Link>
               </div>

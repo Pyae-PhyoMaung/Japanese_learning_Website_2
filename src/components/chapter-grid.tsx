@@ -21,6 +21,8 @@ export function ChapterGrid({
   search,
   onSearch,
   searchPlaceholder,
+  controls,
+  countNoun,
 }: {
   chapters: ChapterItem[];
   active: number | string;
@@ -28,19 +30,28 @@ export function ChapterGrid({
   search?: string;
   onSearch?: (q: string) => void;
   searchPlaceholder?: string;
+  /* selection buttons rendered beside the search bar (Select / Learn selected / Clear) */
+  controls?: React.ReactNode;
+  /* noun for the count line under each chapter title, e.g. "kanji" → "11 kanji" */
+  countNoun?: string;
 }) {
   const { t } = useT();
   return (
     <div className="mb-4 space-y-3">
       {onSearch ? (
-        <input
-          value={search || ''}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder={searchPlaceholder || t('Search')}
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        /* search bar with the selection controls beside it, like the original site */
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={search || ''}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder={searchPlaceholder || t('Search')}
+            className="h-9 min-w-[200px] flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          {controls}
+        </div>
       ) : null}
-      <div className="flex flex-wrap gap-2">
+      {/* chapter boxes — big number on top, chapter title, count underneath */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {chapters.map((c) => {
           const key = c.extra ? 'c_' + c.n + '_x' : c.n;
           const isActive = String(active) === String(key);
@@ -50,22 +61,29 @@ export function ChapterGrid({
               type="button"
               onClick={() => onPick(key)}
               className={cn(
-                'rounded-lg border px-3 py-2 text-left text-sm transition-colors hover:bg-accent',
+                'flex min-h-[7rem] flex-col items-center justify-center gap-0.5 rounded-xl border bg-card p-3 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md',
                 c.extra && 'border-dashed',
-                isActive ? 'border-primary bg-primary text-primary-foreground hover:bg-primary' : ''
+                isActive ? 'border-primary bg-primary text-primary-foreground hover:bg-primary' : 'hover:bg-accent/40'
               )}
             >
               {c.extra || !c.t ? (
-                /* special entries (All / Essential / All kanji…) and untitled chapters: no leading number */
-                <span className="font-medium">{c.t || c.n + '章'}</span>
-              ) : (
-                /* regular chapters — “N章 Title” like the original site */
+                /* special entries (All / Essential / All kanji…) and untitled chapters: icon instead of a number */
                 <>
-                  <span className="mr-1 font-medium">{c.n}章</span>
-                  <span className={cn(isActive ? 'text-primary-foreground/90' : 'text-muted-foreground')}>{c.t}</span>
+                  <span className="text-3xl leading-none">📖</span>
+                  <span className="font-medium">{c.t || c.n + '章'}</span>
+                </>
+              ) : (
+                /* regular chapters — big chapter number like the original site */
+                <>
+                  <span className={cn('text-3xl font-bold leading-none', isActive ? 'text-primary-foreground' : 'text-primary')}>{c.n}</span>
+                  <span className="text-sm font-medium">{c.t}</span>
                 </>
               )}
-              {c.count ? <span className={cn('ml-2 rounded-full px-1.5 py-0.5 text-xs', isActive ? 'bg-primary-foreground/20' : 'bg-muted')}>{c.count}</span> : null}
+              {c.count ? (
+                <span className={cn('text-xs', isActive ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                  {c.count}{countNoun ? ' ' + countNoun : ''}
+                </span>
+              ) : null}
             </button>
           );
         })}
