@@ -8,7 +8,7 @@
    kex (kanji example) words are listed read-only so counts match the
    Vocabulary page. */
 import * as React from 'react';
-import { kanjiList, vocabList, grammarList, kexVocab, merged, chapters, chapterTitle, useJL } from '@/lib/jl';
+import { kanjiList, vocabList, grammarList, sentenceList, kexVocab, merged, chapters, chapterTitle, useJL } from '@/lib/jl';
 import { pref, save, remove, getUser, setUser } from '@/lib/store';
 import { PageHead } from '@/components/page-head';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -56,9 +56,11 @@ export default function EditPage() {
   /* tests builders */
   const [qzT, setQzT] = React.useState('');
   const [qzCh, setQzCh] = React.useState(0);
+  const [qzLvl, setQzLvl] = React.useState('N5');
   const [qz, setQz] = React.useState<any[]>([{ q: '', c: '', w1: '', w2: '' }]);
   const [dkT, setDkT] = React.useState('');
   const [dkCh, setDkCh] = React.useState(0);
+  const [dkLvl, setDkLvl] = React.useState('N5');
   const [dk, setDk] = React.useState<any[]>([{ front: '', back: '' }]);
 
   /* list filters */
@@ -179,23 +181,23 @@ export default function EditPage() {
       q: r.q.trim(), opts: [r.c, r.w1, r.w2].map((x) => x.trim()).filter(Boolean), ans: 0,
     }));
     if (!qzT.trim() || !items.length) { toast('Fill the main field first.', 'warn'); return; }
-    save('tests', { id: uid('u_'), title: qzT.trim(), kind: 'quiz', items, level: 'N5', chapter: Number(qzCh) || 0 });
+    save('tests', { id: uid('u_'), title: qzT.trim(), kind: 'quiz', items, level: qzLvl, chapter: Number(qzCh) || 0 });
     toast('Test saved.', 'ok');
     setQzT(''); setQzCh(0); setQz([{ q: '', c: '', w1: '', w2: '' }]);
   };
   const saveDeck = () => {
     const items = dk.filter((r) => r.front.trim()).map((r) => ({ front: r.front.trim(), back: r.back.trim() }));
     if (!dkT.trim() || !items.length) { toast('Fill the main field first.', 'warn'); return; }
-    save('tests', { id: uid('u_'), title: dkT.trim(), kind: 'deck', items, level: 'N5', chapter: Number(dkCh) || 0 });
+    save('tests', { id: uid('u_'), title: dkT.trim(), kind: 'deck', items, level: dkLvl, chapter: Number(dkCh) || 0 });
     toast('Test saved.', 'ok');
     setDkT(''); setDkCh(0); setDk([{ front: '', back: '' }]);
   };
   const loadTest = (ut: UserTest) => {
     if (ut.kind === 'deck') {
-      setDkT(ut.title); setDkCh(ut.chapter || 0);
+      setDkT(ut.title); setDkCh(ut.chapter || 0); setDkLvl(ut.level || 'N5');
       setDk(ut.items && ut.items.length ? ut.items.map((i: any) => ({ front: i.front || '', back: i.back || '' })) : [{ front: '', back: '' }]);
     } else {
-      setQzT(ut.title); setQzCh(ut.chapter || 0);
+      setQzT(ut.title); setQzCh(ut.chapter || 0); setQzLvl(ut.level || 'N5');
       setQz(ut.items && ut.items.length ? ut.items.map((i: any) => ({ q: i.q || '', c: i.opts[0] || '', w1: i.opts[1] || '', w2: i.opts[2] || '' })) : [{ q: '', c: '', w1: '', w2: '' }]);
     }
   };
@@ -212,8 +214,17 @@ export default function EditPage() {
     setNchN(''); setNchT('');
   };
   const delChapter = (n: number) => {
+    const c = chBook.find((x) => Number(x.n) === n);
+    const total = (kCounts[n] || 0) + (vCounts[n] || 0) + (gCounts[n] || 0);
+    const label = c ? n + '章 ' + (chT(n) || c.t) : String(n);
+    if (!window.confirm(t('Delete chapter') + ' ' + label + '?' + (total ? ' ' + t('Its items will move to chapter 0 (unassigned).') : ''))) return;
+    ([['kanji', kanjiList()], ['vocab', vocabList()], ['grammar', grammarList()]] as Array<[string, any[]]>).forEach(([kind, arr]) => {
+      arr.filter((it: any) => Number(it.chapter) === n).forEach((it: any) => {
+        save(kind, { ...it, chapter: 0, chapterTitle: kind === 'grammar' ? 'Lesson 0' : '' });
+      });
+    });
     pref('uchapters', uchapters.filter((x) => Number(x.n) !== n));
-    toast('Chapter deleted.', 'ok');
+    toast('Chapter deleted. Its items moved to chapter 0.', 'ok');
   };
   const saveRen = () => {
     if (!ren) return;
@@ -256,6 +267,17 @@ export default function EditPage() {
     toast('All changes reset 🗑', 'ok');
   };
 
+  /* backup stats line — like the original site: "kanji: 2 added, 1 edited, 0 deleted · …" */
+  const backupStats = mounted
+    ? (['kanji', 'vocab', 'grammar', 'tests'] as const)
+        .map((k) => {
+          const u: any = getUser();
+          const s = (u && u[k]) || {};
+          return k + ': ' + (s.added || []).length + ' added, ' + Object.keys(s.edited || {}).length + ' edited, ' + Object.keys(s.deleted || {}).length + ' deleted';
+        })
+        .join(' · ')
+    : '';
+
   /* ---------- filters, chips, tables ---------- */
   const hit = (it: any, q: string) => !q || [it.jp, it.rd, it.romaji, it.mm, it.en, it.kanji, it.meaning, it.title, it.pattern].some((v) => v && String(v).toLowerCase().includes(q.toLowerCase()));
   const vRows = vocabAll.concat(kexAll);
@@ -268,6 +290,10 @@ export default function EditPage() {
   const gCounts: Record<number, number> = {};
   gramAll.forEach((it) => { const n = Number(it.chapter) || 0; if (n) gCounts[n] = (gCounts[n] || 0) + 1; });
   const gFiltered = gramAll.filter((it) => hit(it, gq) && (gCh === 'all' || String(it.chapter || 0) === gCh));
+  const sCounts: Record<number, number> = {};
+  (mounted ? lvlOf(sentenceList()) : []).forEach((it: any) => { const n = Number(it.chapter) || 0; if (n) sCounts[n] = (sCounts[n] || 0) + 1; });
+  const tCounts: Record<number, number> = {};
+  testsList.forEach((it) => { const n = Number(it.chapter) || 0; if (n) tCounts[n] = (tCounts[n] || 0) + 1; });
 
   const chips = (val: string, set: (v: string) => void, counts: Record<number, number>) => (
     <div className="flex flex-wrap gap-2">
@@ -507,24 +533,41 @@ export default function EditPage() {
           <div className="space-y-4">
             <div className="rounded-xl border bg-card p-4 shadow-sm">
               <h3 className="mb-3 font-semibold">📚 {t('Chapters')}</h3>
-              <p className="mb-3 text-sm text-muted-foreground">{t('Rename a chapter — the new title shows everywhere (kanji, vocab, grammar).')}</p>
+              <p className="mb-3 text-sm text-muted-foreground">
+                {t('Add, rename or delete chapters. They appear on the Kanji, Vocabulary, Grammar and Writing pages, and in every form on this page.')}
+                {' '}<b>{showLvl === 'all' ? t('All levels') : showLvl}</b>
+              </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <F label={t('Chapter no.')}>
-                  <select value={nchN} onChange={(e) => setNchN(e.target.value)} className={selectCls}>
-                    <option value="">—</option>
-                    {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章</option>)}
-                  </select>
+                  <input type="number" min={1} value={nchN} onChange={(e) => setNchN(e.target.value)} className={cellCls} />
                 </F>
                 <F label={t('Title')}><input value={nchT} onChange={(e) => setNchT(e.target.value)} onBlur={(e) => { const fx = fixField(e.target.value); setNchT(fx.value); }} placeholder="例：Numbers / နံပါတ်များ" className={cellCls} /></F>
                 <div className="flex items-end"><Button onClick={saveChapter}>💾 {t('Add / update chapter')}</Button></div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {chBook.map((c) => (
-                <button key={c.n} type="button" className="rounded-lg border px-3 py-2 text-sm hover:bg-accent" onClick={() => setRen({ n: c.n, t: chT(c.n) || c.t || '' })}>
-                  {c.n}章 {chT(c.n) || c.t} ✏️
-                </button>
-              ))}
+            <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead><tr><Th>CH</Th><Th>{t('TITLE')}</Th><Th>{t('KANJI')}</Th><Th>{t('VOCAB')}</Th><Th>{t('GRAMMAR')}</Th><Th>{t('LISTEN')}</Th><Th>{t('TESTS')}</Th><Th /></tr></thead>
+                <tbody>
+                  {chBook.map((c) => (
+                    <tr key={c.n} className="border-b last:border-b-0">
+                      <td className="px-3 py-2 font-bold">{c.n}</td>
+                      <td className="px-3 py-2">{chT(c.n) || c.t}</td>
+                      <td className="px-3 py-2 text-center">{kCounts[c.n] || 0}</td>
+                      <td className="px-3 py-2 text-center">{vCounts[c.n] || 0}</td>
+                      <td className="px-3 py-2 text-center">{gCounts[c.n] || 0}</td>
+                      <td className="px-3 py-2 text-center">{sCounts[c.n] || 0}</td>
+                      <td className="px-3 py-2 text-center">{tCounts[c.n] || 0}</td>
+                      <td className="px-3 py-2 text-right">
+                        <span className="flex justify-end gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => setRen({ n: c.n, t: chT(c.n) || c.t || '' })}>✏️ {t('Rename')}</Button>
+                          <Button size="sm" variant="ghost" onClick={() => delChapter(c.n)}>🗑 {t('Delete')}</Button>
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             {ren ? (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
@@ -534,33 +577,29 @@ export default function EditPage() {
                 <Button size="sm" variant="ghost" onClick={() => setRen(null)}>{t('Close')}</Button>
               </div>
             ) : null}
-            {uchapters.length ? (
-              <div className="flex flex-wrap gap-2">
-                {uchapters.map((c) => (
-                  <span key={c.n} className="flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-sm">
-                    {c.n}章 {c.t}
-                    <button type="button" className="text-xs hover:text-primary" onClick={() => setRen({ n: c.n, t: c.t })}>✏️ {t('Rename')}</button>
-                    <button type="button" className="text-xs hover:text-destructive" onClick={() => delChapter(c.n)}>🗑 {t('Delete')}</button>
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </div>
         </TabsContent>
 
         {/* ---- Tests ---- */}
         <TabsContent value="tests">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
             <div className="rounded-xl border bg-card p-4 shadow-sm">
               <h3 className="mb-3 font-semibold">➕ {t('Build your own quiz')}</h3>
               <div className="space-y-3">
                 <F label={t('Quiz title')}><input value={qzT} onChange={(e) => setQzT(e.target.value)} placeholder={t('My N5 word test')} className={cellCls} /></F>
-                <F label={t('Chapter')}>
-                  <select value={String(qzCh)} onChange={(e) => setQzCh(Number(e.target.value))} className={selectCls}>
-                    <option value="0">{t('— no chapter —')}</option>
-                    {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
-                  </select>
-                </F>
+                <div className="grid grid-cols-2 gap-2">
+                  <F label={t('Chapter')}>
+                    <select value={String(qzCh)} onChange={(e) => setQzCh(Number(e.target.value))} className={selectCls}>
+                      <option value="0">{t('— no chapter —')}</option>
+                      {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
+                    </select>
+                  </F>
+                  <F label={t('Level')}>
+                    <select value={qzLvl} onChange={(e) => setQzLvl(e.target.value)} className={selectCls}>
+                      {lvls.map((l) => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  </F>
+                </div>
                 {qz.map((r, i) => (
                   <div key={i} className="flex flex-wrap items-center gap-2">
                     <input value={r.q} onChange={(e) => { const a = [...qz]; a[i] = { ...r, q: e.target.value }; setQz(a); }} placeholder="Question 例：学校___行きます。" className={cellCls + ' min-w-40 flex-1'} />
@@ -571,19 +610,29 @@ export default function EditPage() {
                   </div>
                 ))}
                 <Button size="sm" variant="outline" onClick={() => setQz(qz.concat([{ q: '', c: '', w1: '', w2: '' }]))}>+ {t('Add question')}</Button>
-                <div><Button onClick={saveQuiz}>💾 {t('Save quiz')}</Button></div>
+                <div className="flex gap-2">
+                  <Button onClick={saveQuiz}>💾 {t('Save quiz')}</Button>
+                  <Button variant="outline" onClick={() => { setQzT(''); setQzCh(0); setQzLvl('N5'); setQz([{ q: '', c: '', w1: '', w2: '' }]); }}>✨ {t('New / clear')}</Button>
+                </div>
               </div>
             </div>
             <div className="rounded-xl border bg-card p-4 shadow-sm">
               <h3 className="mb-3 font-semibold">➕ {t('Build a flashcard deck')}</h3>
               <div className="space-y-3">
                 <F label={t('Deck title')}><input value={dkT} onChange={(e) => setDkT(e.target.value)} placeholder={t('My hard words')} className={cellCls} /></F>
-                <F label={t('Chapter')}>
-                  <select value={String(dkCh)} onChange={(e) => setDkCh(Number(e.target.value))} className={selectCls}>
-                    <option value="0">{t('— no chapter —')}</option>
-                    {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
-                  </select>
-                </F>
+                <div className="grid grid-cols-2 gap-2">
+                  <F label={t('Chapter')}>
+                    <select value={String(dkCh)} onChange={(e) => setDkCh(Number(e.target.value))} className={selectCls}>
+                      <option value="0">{t('— no chapter —')}</option>
+                      {chBook.map((c) => <option key={c.n} value={String(c.n)}>{c.n}章 {chT(c.n) || c.t}</option>)}
+                    </select>
+                  </F>
+                  <F label={t('Level')}>
+                    <select value={dkLvl} onChange={(e) => setDkLvl(e.target.value)} className={selectCls}>
+                      {lvls.map((l) => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  </F>
+                </div>
                 {dk.map((r, i) => (
                   <div key={i} className="flex flex-wrap items-center gap-2">
                     <input value={r.front} onChange={(e) => { const a = [...dk]; a[i] = { ...r, front: e.target.value }; setDk(a); }} placeholder={t('Front')} className={cellCls + ' min-w-40 flex-1'} />
@@ -592,7 +641,10 @@ export default function EditPage() {
                   </div>
                 ))}
                 <Button size="sm" variant="outline" onClick={() => setDk(dk.concat([{ front: '', back: '' }]))}>+ {t('Add card')}</Button>
-                <div><Button onClick={saveDeck}>💾 {t('Save deck')}</Button></div>
+                <div className="flex gap-2">
+                  <Button onClick={saveDeck}>💾 {t('Save deck')}</Button>
+                  <Button variant="outline" onClick={() => { setDkT(''); setDkCh(0); setDkLvl('N5'); setDk([{ front: '', back: '' }]); }}>✨ {t('New / clear')}</Button>
+                </div>
               </div>
             </div>
           </div>
@@ -622,7 +674,7 @@ export default function EditPage() {
         <TabsContent value="backup">
           <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
             <h3 className="font-semibold">💾 {t('Backup your additions')}</h3>
-            <p className="text-sm text-muted-foreground">{t('Download everything you added, edited and deleted as one JSON file — or restore it on any device. Restoring merges, so nothing is lost.')}</p>
+            <p className="text-sm text-muted-foreground">{t('Your additions and edits are stored only in this browser. Export a backup file before switching computers or clearing browser data.')}</p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={backupExport}>⬇ {t('Export my data (JSON)')}</Button>
               <input type="file" accept="application/json" className="hidden" id="b-in" onChange={(e) => backupImport(e.target.files && e.target.files[0])} />
@@ -630,6 +682,7 @@ export default function EditPage() {
               <Button variant="outline" onClick={restoreAllDeleted}>♻️ {t('Restore all deleted base items')}</Button>
               <Button variant="destructive" onClick={resetAll}>🗑 {t('Reset ALL my changes')}</Button>
             </div>
+            <p className="text-xs text-muted-foreground">{backupStats}</p>
           </div>
         </TabsContent>
       </Tabs>

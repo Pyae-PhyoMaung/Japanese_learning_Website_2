@@ -59,7 +59,8 @@ export default function KanjiPage() {
   }, []);
 
   const filtered = ALL.filter((k) => {
-    if (view === 'kanji' && ch && k.chapter !== ch) return false;
+    /* with a search term, results ignore the open chapter (like the original site) */
+    if (!q && view === 'kanji' && ch && k.chapter !== ch) return false;
     if (q) {
       const needle = q.toLowerCase();
       const hay = [k.kanji, (k.on || []).join(' '), k.kun, k.meaning, k.en].join(' ').toLowerCase();
@@ -122,68 +123,41 @@ export default function KanjiPage() {
           <TabsTrigger value="blank">{t('Fill in the blank')}</TabsTrigger>
         </TabsList>
         <TabsContent value="learn">
+          {/* search + selection toolbar — always at the top, above both the
+              chapter grid and the chapter view (like the original site) */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <input
+              value={q}
+              onChange={(e) => { const v = e.target.value; setQ(v); if (v) setView('kanji'); syncUrl(); }}
+              placeholder="Search kanji…"
+              className="h-9 min-w-[200px] flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <Button
+              size="sm"
+              variant={selectMode ? 'default' : 'outline'}
+              onClick={() => { setSelectMode(!selectMode); if (!selectMode) { setView('kanji'); syncUrl(); toast('Select mode: tap kanji to add them to your Learn list.', 'ok'); } }}
+            >
+              {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
+            </Button>
+            <Link href="/learn?tab=kanji" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_kanji') || []).length})</Link>
+            <Button size="sm" variant="outline" onClick={() => { pref('sel_kanji', []); toast('Selection cleared.', 'ok'); }}>✕ {t('Clear selection')}</Button>
+          </div>
           {view === 'chapters' ? (
-            <>
             <ChapterGrid
               chapters={[{ n: 0, t: 'All kanji', count: ALL.length, extra: true }].concat(
                 chs.map((c) => ({ n: c.n, t: chapterTitle('kanji', c.n, c.t) || c.t, count: ALL.filter((k) => k.chapter === c.n).length, extra: false }))
               )}
               active={ch}
               onPick={(n) => { setCh(Number(n)); setView('kanji'); syncUrl(); }}
-              search={q}
-              onSearch={(v) => { setQ(v); syncUrl(); }}
-              searchPlaceholder="Search kanji…"
-              showBoxes={!q}
               countNoun="kanji"
-              controls={
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => { setSelectMode(true); setCh(0); setView('kanji'); syncUrl(); toast('Select mode: tap kanji to add them to your Learn list.', 'ok'); }}
-                  >
-                    ☑ {t('Select')}
-                  </Button>
-                  <Link href="/learn?tab=kanji" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_kanji') || []).length})</Link>
-                  <Button size="sm" variant="outline" onClick={() => { pref('sel_kanji', []); toast('Selection cleared.', 'ok'); }}>✕ {t('Clear selection')}</Button>
-                </>
-              }
             />
-            {q ? (
-              <div>
-                <div className="mb-2 text-xs text-muted-foreground">{filtered.length} kanji</div>
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-                  {filtered.map((k) => (
-                    <KanjiCard key={k.id} k={k} selected={selectMode && (pref('sel_kanji') || []).includes(k.id)} onToggle={selectMode ? toggleSel : undefined} />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            </>
           ) : (
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => { setView('chapters'); setQ(''); syncUrl(); }}>← {t('Chapters')}</Button>
-                <span className="font-medium">{ch ? ch + '章 ' + (chs.find((c) => c.n === ch)?.t || '') : q ? 'Search results' : 'All kanji'}</span>
-                <input
-                  value={q}
-                  onChange={(e) => { setQ(e.target.value); syncUrl(); }}
-                  placeholder={t('Search') + '…'}
-                  className="h-8 min-w-[160px] flex-1 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                <Button
-                  size="sm"
-                  variant={selectMode ? 'default' : 'outline'}
-                  onClick={() => { setSelectMode(!selectMode); if (!selectMode) toast('Select mode: tap kanji to add them to your Learn list.', 'ok'); }}
-                >
-                  {selectMode ? '✅ ' + t('Done selecting') : '☑ ' + t('Select')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => { pref('sel_kanji', []); toast('Selection cleared.', 'ok'); }}>
-                  ✕ {t('Clear selection')} ({(pref('sel_kanji') || []).length})
-                </Button>
-                <Link href="/learn?tab=kanji" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">🎯 {t('Learn selected')} ({(pref('sel_kanji') || []).length})</Link>
+                <span className="font-medium">{q ? 'Search results' : ch ? ch + '章 ' + (chs.find((c) => c.n === ch)?.t || '') : 'All kanji'}</span>
+                <span className="text-xs text-muted-foreground">{filtered.length} kanji</span>
               </div>
-              <div className="mb-2 text-xs text-muted-foreground">{filtered.length} kanji</div>
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
                 {filtered.map((k) => (
                   <KanjiCard key={k.id} k={k} selected={selectMode && (pref('sel_kanji') || []).includes(k.id)} onToggle={selectMode ? toggleSel : undefined} />

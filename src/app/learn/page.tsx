@@ -110,24 +110,8 @@ export default function LearnPage() {
     }
   }, [cur && cur.id, tab]);
 
-  if (mounted && mode === 'sel' && !items.length) {
-    return (
-      <div>
-        <PageHead icon="🎯" title="Learn" />
-        <LevelBar />
-        <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
-          <p className="mb-2 font-medium">{t('Nothing selected yet')}</p>
-          <p className="mb-4 text-sm text-muted-foreground">{t('Use ☑ Select on the Kanji, Vocabulary, Kana or Grammar page to build your Learn list.')}</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Link href="/kanji"><Button variant="outline">{t('Kanji')}</Button></Link>
-            <Link href="/vocab"><Button variant="outline">{t('Vocabulary')}</Button></Link>
-            <Link href="/kana"><Button variant="outline">{t('Kana')}</Button></Link>
-            <Link href="/grammar"><Button variant="outline">{t('Grammar')}</Button></Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  /* no early return — the chips and the session card must always be visible
+     so chapters can be learned directly (like the original learn.html) */
 
   const selCount = tab === 'kanji' ? selK.length : tab === 'vocab' ? selV.length : tab === 'kana' ? selN.length : selG.length;
   const totalCount = tab === 'kanji' ? K.length : tab === 'vocab' ? V.length : tab === 'kana' ? KN.length : G.length;
@@ -143,8 +127,10 @@ export default function LearnPage() {
           return { key: String(n), n, label: chapterTitle(tab, n, '') || 'Chapter ' + n, count: arr.filter((x) => Number(x.chapter) === n).length };
         });
   const togglePicked = (key: string) => {
+    /* single-select like the original site: tapping a chapter chip starts
+       (or switches to) that chapter's session; tapping it again stops it */
     setMode('chs');
-    setPicked((p) => (p.includes(key) ? p.filter((x) => x !== key) : p.concat(key)));
+    setPicked((p) => (p.includes(key) ? [] : [key]));
   };
   const chips = (
     <div className="mb-4 space-y-3">
@@ -190,11 +176,10 @@ export default function LearnPage() {
         </div>
       ) : null}
       {mode === 'chs' && !picked.length ? (
-        <p className="text-sm text-muted-foreground">{t('Tap one or more chapters to learn them.')}</p>
+        <p className="text-sm text-muted-foreground">{t('Tap a chapter below to learn it.')}</p>
       ) : null}
     </div>
   );
-
   return (
     <div>
       <PageHead icon="🎯" title="Learn" subtitle={'Study the kanji, words, kana and grammar points you selected on their pages, or learn a whole chapter at once — all in your selected JLPT level. Readings and meanings stay hidden until you tap “Reveal”.'} />
@@ -260,7 +245,13 @@ export default function LearnPage() {
           </div>
         </div>
       ) : (
-        <p className="text-center text-sm text-muted-foreground">{t('Nothing in this scope.')}</p>
+        <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
+          <p className="text-sm text-muted-foreground">
+            {mode === 'sel' && !selCount
+              ? t('Pick ★ Selected above to study your checked items, or tap a chapter chip to learn that whole chapter.')
+              : t('Nothing in this scope.')}
+          </p>
+        </div>
       )}
     </div>
   );
